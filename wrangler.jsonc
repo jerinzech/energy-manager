@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "grid-sense-grenoble",
+  "compatibility_date": "2025-02-01",
+  "main": "worker/index.ts",
+  "assets": {
+    "not_found_handling": "single-page-application",
+    "binding": "ASSETS"
+  },
+  "durable_objects": {
+    "bindings": [
+      { "name": "NEIGHBORHOOD", "class_name": "NeighborhoodRoom" }
+    ]
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["NeighborhoodRoom"] }
+  ]
+}

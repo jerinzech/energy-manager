@@ -1,0 +1,30 @@
+# Dependencies & build outputs
+node_modules/
+dist/
+.vite/
+.cache/
+coverage/
+
+# Cloudflare / Wrangler local state & secrets
+.wrangler/
+.dev.vars
+.dev.vars.*
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Local review & scratch artifacts
+.impeccable/
+docs/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS & editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.tmp

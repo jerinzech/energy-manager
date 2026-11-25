@@ -1,0 +1,3053 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartCharge AI – Workplace Energy Manager</title>
+<style>
+  :root {
+    --bg: #0a1f3d;
+    --bg-deep: #07172e;
+    --panel: #0f2850;
+    --panel-alt: #122e5c;
+    --ink: #e8f0fa;
+    --ink-dim: #9bb3d4;
+    --ink-muted: #6f8bb3;
+    --line: #2a4a7f;
+    --line-bright: #4a6fa8;
+    --accent: #00e676;
+    --accent-dim: rgba(0, 230, 118, 0.14);
+    --solar: #ffab00;
+    --solar-dim: rgba(255, 171, 0, 0.14);
+    --danger: #b71c1c;
+    --grid: #ff5252;
+    --grid-dim: rgba(255, 82, 82, 0.16);
+    --building: #7fb3ff;
+    --building-dim: rgba(127, 179, 255, 0.12);
+    --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; overflow-x: hidden; }
+  body {
+    font-family: var(--sans);
+    background-color: var(--bg);
+    color: var(--ink);
+    background-image:
+      linear-gradient(rgba(232, 240, 250, 0.045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(232, 240, 250, 0.025) 1px, transparent 1px);
+    background-size: 100% 24px, 48px 100%;
+    min-height: 100vh;
+    font-size: 13px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* ── BLUEPRINT TITLE BLOCK HEADER ── */
+  header.titleblock {
+    border-bottom: 2px solid var(--ink);
+    background: var(--panel);
+  }
+  .titleblock-inner {
+    display: grid;
+    grid-template-columns: 1fr 330px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+  .tb-left {
+    padding: 16px 22px;
+    border-right: 1px solid var(--line-bright);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+  }
+  .tb-head-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .product-name {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: -0.025em;
+    line-height: 1;
+    color: var(--ink);
+  }
+  .product-name span.accent { color: var(--accent); }
+  .product-sub {
+    color: var(--ink-dim);
+    font-size: 11px;
+    margin-top: 6px;
+    font-family: var(--mono);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .guide-words {
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11.5px;
+    margin-top: 10px;
+    padding: 4px 8px;
+    background: var(--bg-deep);
+    border: 1px solid var(--line);
+    border-left: 3px solid var(--accent);
+    letter-spacing: 0.03em;
+    font-variant-numeric: tabular-nums;
+  }
+  .legend {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    font-size: 11px;
+    font-family: var(--mono);
+    letter-spacing: 0.03em;
+    color: var(--ink-dim);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 12px; height: 3px; display: inline-block; }
+  .swatch.box { width: 10px; height: 10px; }
+  .swatch.dash { height: 0; border-top: 2px dashed var(--ink); width: 14px; }
+
+  .tb-right {
+    padding: 12px 18px;
+    background: var(--bg-deep);
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 2px;
+  }
+  .tb-spec-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px dashed var(--line);
+    font-family: var(--mono);
+    font-size: 11.5px;
+  }
+  .tb-spec-row:last-child { border-bottom: none; }
+  .tb-spec-row .k { color: var(--ink-dim); text-transform: uppercase; letter-spacing: 0.04em; }
+  .tb-spec-row .v { color: var(--ink); font-weight: 700; text-align: right; }
+
+  /* Plan status stamps */
+  .stamp {
+    display: inline-block;
+    padding: 2px 7px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border: 1px solid currentColor;
+  }
+  .stamp.baseline { color: var(--grid); background: var(--grid-dim); }
+  .stamp.pending { color: var(--solar); background: var(--solar-dim); }
+  .stamp.approved { color: var(--accent); background: var(--accent-dim); }
+  .stamp.modified { color: var(--building); background: var(--building-dim); }
+  .stamp.failsafe { color: var(--solar); background: rgba(183, 28, 28, 0.35); border-color: var(--solar); }
+
+  /* ── COMMAND & SCENARIO STRIP ── */
+  .command-bar {
+    background: var(--bg-deep);
+    border-bottom: 1px solid var(--line-bright);
+  }
+  .command-inner {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 10px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .scenario-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .bar-label {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-right: 2px;
+  }
+  .scenario-btns {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0;
+    border: 1px solid var(--line-bright);
+  }
+  .scenario-btns button {
+    background: transparent;
+    color: var(--ink-dim);
+    border: none;
+    border-right: 1px solid var(--line);
+    padding: 6px 11px;
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+  }
+  .scenario-btns button:last-child { border-right: none; }
+  .scenario-btns button:hover { background: rgba(232, 240, 250, 0.08); color: var(--ink); }
+  .scenario-btns button.active {
+    background: var(--ink);
+    color: var(--bg);
+  }
+  .action-cluster {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* ── BUTTONS (0px radius, flat blueprint) ── */
+  button.btn {
+    background: var(--ink);
+    color: var(--bg);
+    border: 1px solid var(--ink);
+    padding: 7px 14px;
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 11.5px;
+    font-family: var(--mono);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-radius: 0;
+  }
+  button.btn:hover { opacity: 0.88; }
+  button.btn:focus-visible, .tab:focus-visible, .scenario-btns button:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  button.btn.accent {
+    background: var(--accent);
+    color: #041529;
+    border-color: var(--accent);
+  }
+  button.btn.secondary {
+    background: transparent;
+    color: var(--ink);
+    border: 1px solid var(--line-bright);
+  }
+  button.btn.secondary:hover {
+    border-color: var(--ink);
+    background: rgba(232, 240, 250, 0.06);
+    opacity: 1;
+  }
+  button.btn.solar {
+    background: transparent;
+    color: var(--solar);
+    border: 1px solid var(--solar);
+  }
+  button.btn.solar:hover { background: var(--solar-dim); opacity: 1; }
+  button.btn.danger {
+    background: var(--danger);
+    color: #ffffff;
+    border: 1px solid var(--grid);
+  }
+  button.btn.sm { padding: 4px 8px; font-size: 10.5px; }
+
+  /* ── PRESENTATION WALKTHROUGH DRAWER ── */
+  .demo-drawer {
+    display: none;
+    background: #081a34;
+    border-bottom: 2px solid var(--accent);
+  }
+  .demo-drawer.open { display: block; }
+  .demo-drawer-inner {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 14px 22px;
+  }
+  .demo-steps {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+    margin-top: 10px;
+  }
+  .demo-step {
+    background: var(--panel);
+    border: 1px solid var(--line-bright);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .demo-step.active-step { border-color: var(--accent); border-top: 2px solid var(--accent); }
+  .demo-step .step-meta {
+    font-family: var(--mono);
+    font-size: 10.5px;
+    color: var(--accent);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+  .demo-step .step-title { font-weight: 700; font-size: 12.5px; color: var(--ink); }
+  .demo-step .step-note { font-size: 11.5px; color: var(--ink-dim); line-height: 1.4; }
+
+  /* ── MAIN CONTAINER ── */
+  .container {
+    padding: 14px 22px 24px;
+    max-width: 1600px;
+    margin: 0 auto;
+  }
+
+  /* ── KPI STRIP ── */
+  .kpis {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    border: 1px solid var(--line-bright);
+    background: var(--panel);
+  }
+  .kpi {
+    padding: 11px 13px;
+    border-right: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 3px;
+  }
+  .kpi:last-child { border-right: none; }
+  .kpi .label {
+    color: var(--ink-dim);
+    font-size: 10.5px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-family: var(--mono);
+    font-weight: 700;
+  }
+  .kpi .val-row {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .kpi .value {
+    font-size: 23px;
+    font-weight: 800;
+    color: var(--ink);
+    font-family: var(--mono);
+    line-height: 1.05;
+    font-variant-numeric: tabular-nums;
+  }
+  .kpi .value.ok { color: var(--accent); }
+  .kpi .value.bad { color: var(--grid); }
+  .kpi .value.warn { color: var(--solar); }
+  .kpi .delta {
+    font-family: var(--mono);
+    font-size: 11px;
+    font-weight: 700;
+    padding: 1px 5px;
+    border: 1px solid currentColor;
+  }
+  .kpi .delta.ok { color: var(--accent); background: var(--accent-dim); }
+  .kpi .delta.bad { color: var(--grid); background: var(--grid-dim); }
+  .kpi .delta.warn { color: var(--solar); background: var(--solar-dim); }
+  .kpi .hint {
+    color: var(--ink-dim);
+    font-size: 11px;
+    font-family: var(--mono);
+  }
+
+  /* ── FEASIBILITY / SCENARIO BANNER ── */
+  .alert-strip {
+    margin-top: 10px;
+    padding: 9px 14px;
+    border: 1px solid var(--line-bright);
+    background: var(--panel);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .alert-strip.warn { border-left: 4px solid var(--solar); background: rgba(255, 171, 0, 0.08); }
+  .alert-strip.ok { border-left: 4px solid var(--accent); background: rgba(0, 230, 118, 0.07); }
+  .alert-strip.danger { border-left: 4px solid var(--grid); background: rgba(255, 82, 82, 0.10); }
+
+  /* ── TABS ── */
+  .tabs {
+    display: flex;
+    gap: 0;
+    margin: 14px 0 14px;
+    border-bottom: 2px solid var(--ink);
+    flex-wrap: wrap;
+  }
+  .tab {
+    padding: 9px 16px;
+    background: var(--bg-deep);
+    border: 1px solid var(--line);
+    border-bottom: none;
+    cursor: pointer;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-family: var(--mono);
+    margin-right: -1px;
+    border-radius: 0;
+  }
+  .tab:hover { color: var(--ink); background: var(--panel); }
+  .tab.active {
+    background: var(--ink);
+    color: var(--bg);
+    border-color: var(--ink);
+  }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── LAYOUT GRIDS ── */
+  .grid-main { display: grid; grid-template-columns: minmax(0, 2.35fr) minmax(0, 1fr); gap: 14px; }
+  .grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+  .stack { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+  .mt-14 { margin-top: 14px; }
+
+  /* ── CARDS & HEADINGS ── */
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line-bright);
+    padding: 14px;
+    min-width: 0;
+  }
+  .card.accent-top { border-top: 2px solid var(--accent); }
+  .card.warn-top { border-top: 2px solid var(--solar); }
+  .card.danger-top { border-top: 2px solid var(--grid); }
+  .section-title {
+    font-size: 11.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ink);
+    border-bottom: 2px solid var(--ink);
+    padding-bottom: 5px;
+    margin: 0 0 11px 0;
+    font-family: var(--mono);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .section-title .sub {
+    font-weight: 400;
+    color: var(--ink-dim);
+    font-size: 11px;
+    letter-spacing: 0.02em;
+  }
+
+  /* ── TELEMETRY BAR & SVG CHARTS ── */
+  .chart-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+    padding: 6px 10px;
+    background: var(--bg-deep);
+    border: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 11.5px;
+  }
+  .telemetry {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .telemetry span strong { font-weight: 700; }
+  .chart-toggles {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .chk-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-dim);
+    cursor: pointer;
+    user-select: none;
+  }
+  .chk-label input { accent-color: var(--accent); cursor: pointer; }
+  .svg-wrap {
+    width: 100%;
+    position: relative;
+    background: var(--bg-deep);
+    border: 1px solid var(--line);
+  }
+  .svg-wrap svg { display: block; width: 100%; height: auto; }
+
+  /* ── SPEC LIST / METRIC ROWS ── */
+  .spec-list { font-family: var(--mono); font-size: 12px; }
+  .spec-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    border-bottom: 1px dashed var(--line);
+    gap: 8px;
+  }
+  .spec-row:last-child { border-bottom: none; }
+  .spec-row .k { color: var(--ink-dim); }
+  .spec-row .v { color: var(--ink); font-weight: 700; text-align: right; }
+
+  /* ── TABLES & GANTT BARS ── */
+  .table-wrap { overflow-x: auto; max-width: 100%; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+  }
+  th, td {
+    padding: 7px 8px;
+    text-align: left;
+    border-bottom: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  table.wrap-table { font-family: var(--sans); font-size: 12px; }
+  table.wrap-table th, table.wrap-table td { white-space: normal; line-height: 1.35; padding: 7px 7px; }
+  table.wrap-table th { font-family: var(--mono); font-size: 10.5px; }
+  th {
+    color: var(--ink-dim);
+    font-weight: 700;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    border-bottom: 2px solid var(--ink);
+    background: var(--bg-deep);
+  }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: rgba(232, 240, 250, 0.06); }
+  tbody tr.selected { background: rgba(0, 230, 118, 0.11); }
+  tbody tr.urgent-row { background: rgba(255, 171, 0, 0.10); }
+
+  .tag {
+    display: inline-block;
+    padding: 1px 6px;
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    border: 1px solid currentColor;
+  }
+  .tag.ok { color: var(--accent); background: var(--accent-dim); }
+  .tag.warn { color: var(--solar); background: var(--solar-dim); }
+  .tag.danger { color: var(--grid); background: var(--grid-dim); }
+  .tag.info { color: var(--building); background: var(--building-dim); }
+  .tag.dim { color: var(--ink-dim); border-color: var(--line-bright); }
+
+  .gantt-cell { min-width: 150px; }
+  .gantt-track {
+    position: relative;
+    height: 14px;
+    background: var(--bg-deep);
+    border: 1px solid var(--line);
+    width: 100%;
+  }
+  .gantt-dwell {
+    position: absolute;
+    top: 2px;
+    bottom: 2px;
+    background: rgba(127, 179, 255, 0.22);
+    border-left: 1px solid var(--building);
+    border-right: 1px solid var(--building);
+  }
+  .gantt-charge {
+    position: absolute;
+    top: 1px;
+    bottom: 1px;
+    background: var(--accent);
+  }
+  .gantt-charge.baseline { background: var(--grid); }
+  .gantt-charge.urgent { background: var(--solar); }
+
+  /* ── EXPLAINABILITY PANEL ── */
+  .explain-box {
+    background: var(--bg-deep);
+    border: 1px solid var(--line-bright);
+    border-left: 3px solid var(--accent);
+    padding: 12px 14px;
+  }
+  .explain-quote {
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--ink);
+    margin: 0 0 10px 0;
+  }
+  .explain-factors {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 8px;
+  }
+  .factor-cell {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    padding: 7px 9px;
+    font-family: var(--mono);
+  }
+  .factor-cell .fl { font-size: 10px; color: var(--ink-dim); text-transform: uppercase; }
+  .factor-cell .fv { font-size: 13px; font-weight: 700; color: var(--ink); margin-top: 2px; }
+
+  /* ── OUTCOME / MONITOR STRIPS ── */
+  .strip-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    border: 1px solid var(--line-bright);
+    background: var(--bg-deep);
+  }
+  .strip-grid.cols-6 { grid-template-columns: repeat(6, 1fr); }
+  .strip-cell {
+    padding: 12px 13px;
+    border-right: 1px solid var(--line);
+  }
+  .strip-cell:last-child { border-right: none; }
+  .strip-cell .sv {
+    font-size: 22px;
+    font-weight: 800;
+    color: var(--accent);
+    font-family: var(--mono);
+    line-height: 1.1;
+  }
+  .strip-cell .sv.warn { color: var(--solar); }
+  .strip-cell .sv.ink { color: var(--ink); }
+  .strip-cell .sl {
+    font-size: 10.5px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-family: var(--mono);
+    margin-top: 4px;
+  }
+  .strip-cell .sh {
+    font-size: 11px;
+    color: var(--ink-muted);
+    font-family: var(--mono);
+    margin-top: 2px;
+  }
+
+  /* ── MANAGER CONTROLS & FORMS ── */
+  .ctrl-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .ctrl-box {
+    background: var(--bg-deep);
+    border: 1px solid var(--line);
+    padding: 12px;
+  }
+  .ctrl-box label {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--ink-dim);
+    text-transform: uppercase;
+    margin-bottom: 8px;
+    font-weight: 700;
+  }
+  .ctrl-box label strong { color: var(--accent); font-size: 13px; }
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+  input[type="number"], select, input[type="text"] {
+    background: var(--panel);
+    color: var(--ink);
+    border: 1px solid var(--line-bright);
+    padding: 6px 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    border-radius: 0;
+  }
+  .ctrl-box select, .ctrl-box input[type="number"] { width: 100%; }
+
+  /* ── PIPELINE FLOW ── */
+  .pipeline {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+  }
+  .pipe-step {
+    background: var(--bg-deep);
+    border: 1px solid var(--line-bright);
+    border-top: 2px solid var(--building);
+    padding: 12px;
+  }
+  .pipe-step.opt { border-top-color: var(--accent); }
+  .pipe-step.hitl { border-top-color: var(--solar); }
+  .pipe-step .pnum { font-family: var(--mono); font-size: 11px; color: var(--ink-dim); }
+  .pipe-step h4 { margin: 4px 0 6px; font-size: 14px; color: var(--ink); }
+  .pipe-step p { margin: 0; font-size: 12px; color: var(--ink-dim); line-height: 1.45; }
+
+  /* ── AUTONOMY LADDER ── */
+  .ladder {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    border: 1px solid var(--line-bright);
+  }
+  .rung {
+    padding: 10px;
+    border-right: 1px solid var(--line);
+    background: var(--bg-deep);
+    font-family: var(--mono);
+  }
+  .rung:last-child { border-right: none; }
+  .rung.current {
+    background: var(--accent-dim);
+    border-top: 3px solid var(--accent);
+  }
+  .rung.next { border-top: 3px solid var(--solar); }
+  .rung .r-lvl { font-size: 11px; color: var(--ink-dim); }
+  .rung.current .r-lvl { color: var(--accent); font-weight: 700; }
+  .rung .r-name { font-size: 12px; font-weight: 700; color: var(--ink); margin: 3px 0; }
+  .rung .r-desc { font-size: 11px; color: var(--ink-dim); font-family: var(--sans); line-height: 1.35; }
+
+  /* ── VALUE BAR ── */
+  .bar-row { margin-bottom: 10px; }
+  .bar-meta {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--mono);
+    font-size: 11.5px;
+    margin-bottom: 4px;
+  }
+  .bar-track { height: 14px; background: var(--bg-deep); border: 1px solid var(--line); }
+  .bar-fill { height: 100%; background: var(--accent); }
+  .bar-fill.blue { background: var(--building); }
+  .bar-fill.amber { background: var(--solar); }
+  .bar-fill.red { background: var(--grid); }
+
+  /* ── AUDIT LOG ── */
+  .audit-log {
+    max-height: 250px;
+    overflow-y: auto;
+    background: var(--bg-deep);
+    border: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 11.5px;
+  }
+  .audit-entry {
+    display: grid;
+    grid-template-columns: 78px 115px 1fr;
+    gap: 10px;
+    padding: 7px 10px;
+    border-bottom: 1px solid var(--line);
+  }
+  .audit-entry:last-child { border-bottom: none; }
+  .audit-entry .ts { color: var(--ink-muted); }
+  .audit-entry .act { font-weight: 700; color: var(--accent); }
+  .audit-entry .act.warn { color: var(--solar); }
+  .audit-entry .act.danger { color: var(--grid); }
+
+  /* ── PRIVACY & FOOTER ── */
+  .privacy-bar {
+    background: rgba(0, 230, 118, 0.06);
+    border: 1px solid var(--line-bright);
+    border-left: 3px solid var(--accent);
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--ink);
+    font-family: var(--mono);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .privacy-bar .sub { color: var(--ink-dim); font-size: 11px; }
+
+  .footer {
+    color: var(--ink-dim);
+    font-size: 11px;
+    text-align: center;
+    padding: 18px 12px 10px;
+    font-family: var(--mono);
+    letter-spacing: 0.04em;
+    border-top: 1px solid var(--line);
+    margin-top: 18px;
+  }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 1200px) {
+    .kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .kpi { border-bottom: 1px solid var(--line); }
+    .grid-main { grid-template-columns: minmax(0, 1fr); }
+    .strip-grid.cols-6 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .demo-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .ladder { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  @media (max-width: 860px) {
+    .titleblock-inner { grid-template-columns: minmax(0, 1fr); }
+    .tb-left { border-right: none; border-bottom: 1px solid var(--line-bright); padding: 14px; }
+    .tb-right { padding: 12px 14px; }
+    .command-inner, .demo-drawer-inner { padding: 10px 14px; }
+    .container { padding: 12px 14px 20px; }
+    .grid-2, .grid-3, .grid-4, .ctrl-grid, .pipeline, .explain-factors { grid-template-columns: minmax(0, 1fr); }
+    .strip-grid, .strip-grid.cols-6 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .kpi .value { font-size: 19px; }
+    .demo-steps, .ladder { grid-template-columns: minmax(0, 1fr); }
+    .scenario-btns button { border-bottom: 1px solid var(--line); flex: 1 1 auto; text-align: center; }
+    .tabs { overflow-x: auto; flex-wrap: nowrap; }
+    .tab { white-space: nowrap; flex: 0 0 auto; }
+    .audit-entry { grid-template-columns: 62px 88px minmax(0, 1fr); gap: 6px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════════════ BLUEPRINT TITLE BLOCK ════════════════════ -->
+<header class="titleblock">
+  <div class="titleblock-inner">
+    <div class="tb-left">
+      <div>
+        <div class="tb-head-row">
+          <div class="product-name">SmartCharge <span class="accent">AI</span></div>
+          <span class="stamp baseline" id="headerStamp">BASELINE · UNCOORDINATED</span>
+        </div>
+        <div class="product-sub">WORKPLACE ENERGY MANAGER · DAY-AHEAD EV SCHEDULING · CLASSROOM SIMULATION (NO REAL DATA)</div>
+        <div class="guide-words" id="guideWords">GUIDE WORDS · 06:00 — 20:00 · FORECAST PEAK 09:15 (412 kW) · HOVER CHART FOR 15-MIN TELEMETRY</div>
+      </div>
+      <div class="legend">
+        <span><span class="swatch" style="background:#7fb3ff"></span>BUILDING LOAD</span>
+        <span><span class="swatch box" style="background:rgba(0,230,118,0.45);border:1px solid #00e676"></span>EV CHARGING</span>
+        <span><span class="swatch" style="background:#ffab00"></span>SOLAR CANOPY PV</span>
+        <span><span class="swatch" style="background:#ff5252;height:4px"></span>TOTAL GRID DEMAND</span>
+        <span><span class="swatch dash"></span>TARGET PEAK CAP</span>
+      </div>
+    </div>
+    <div class="tb-right">
+      <div class="tb-spec-row"><span class="k">Site / Horizon</span><span class="v">Tomorrow · 06:00–20:00</span></div>
+      <div class="tb-spec-row"><span class="k">Fleet / Bays</span><span class="v" id="specFleet">28 EVs · 35 Chargers</span></div>
+      <div class="tb-spec-row"><span class="k">AI Architecture</span><span class="v">TS Forecast + LP Opt.</span></div>
+      <div class="tb-spec-row"><span class="k">Autonomy Level</span><span class="v" style="color:var(--accent)">L3 · Act w/ Approval</span></div>
+      <div class="tb-spec-row"><span class="k">Plan Signature</span><span class="v" id="specHash">UNSIGNED (DRAFT)</span></div>
+    </div>
+  </div>
+</header>
+
+<!-- ════════════════════ COMMAND & CLASSROOM SCENARIO BAR ════════════════════ -->
+<div class="command-bar">
+  <div class="command-inner">
+    <div class="scenario-wrap">
+      <span class="bar-label">Scenario:</span>
+      <div class="scenario-btns" id="scenarioBtns" role="group" aria-label="Classroom simulation scenarios"></div>
+    </div>
+    <div class="action-cluster">
+      <button class="btn accent" id="topOptBtn" onclick="runOptimize()">Optimize Tomorrow</button>
+      <button class="btn secondary" id="topResetBtn" onclick="resetBaseline()" style="display:none;">Reset Baseline</button>
+      <button class="btn solar" id="demoGuideBtn" onclick="toggleDemoGuide()">8-Min Demo Guide</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════ COLLAPSIBLE 8-MIN PRESENTATION GUIDE ════════════════════ -->
+<section class="demo-drawer" id="demoDrawer" aria-label="Presentation walkthrough">
+  <div class="demo-drawer-inner">
+    <div class="section-title" style="margin-bottom:6px;">
+      <span>GEM MDAI Group Presentation Walkthrough · 8 Minutes · 5 Speakers</span>
+      <span class="sub">Diego Arce Mejia · Sacha Cherifi · Assil El Kharsa · Jerin James · Vignesh Dillibabu</span>
+    </div>
+    <div class="demo-steps" id="demoSteps">
+      <div class="demo-step" data-step="1">
+        <div>
+          <div class="step-meta">00:00–01:30 · Problem &amp; Value</div>
+          <div class="step-title">1. The 09:00 Power Peak</div>
+          <div class="step-note">Show uncoordinated 412 kW spike breaching the 350 kW grid limit while midday solar sits idle. Explain peak charges &amp; transformer upgrade cost.</div>
+        </div>
+        <button class="btn sm secondary" onclick="demoStep(1)">Load Baseline Peak</button>
+      </div>
+      <div class="demo-step" data-step="2">
+        <div>
+          <div class="step-meta">01:30–03:15 · AI Solution &amp; XAI</div>
+          <div class="step-title">2. Predict → Plan → Explain</div>
+          <div class="step-note">Click Optimize Tomorrow: shift 91% off the 09:00 peak (412→330 kW), maximize solar, 100% cars ready. Click EV-08 "Why now?" for plain-English XAI.</div>
+        </div>
+        <button class="btn sm accent" onclick="demoStep(2)">Run AI Optimization</button>
+      </div>
+      <div class="demo-step" data-step="3">
+        <div>
+          <div class="step-meta">03:15–04:45 · Human Control</div>
+          <div class="step-title">3. L3 Approval &amp; Urgent Trip</div>
+          <div class="step-note">Trigger "Urgent Business Trip" on EV-04 to prove live re-optimization, show Modify/Approve gate, immutable override log &amp; Edge Fail-Safe.</div>
+        </div>
+        <button class="btn sm secondary" onclick="demoStep(3)">Trigger Urgent Trip</button>
+      </div>
+      <div class="demo-step" data-step="4">
+        <div>
+          <div class="step-meta">04:45–06:20 · Stress, Pilot &amp; Scale</div>
+          <div class="step-title">4. Scenarios &amp; 30-Day Pilot</div>
+          <div class="step-note">Test "Unexpected Building Peak" or "Cold Morning" to show resilience, then open the 30-Day Pilot vs Control Site &amp; Multi-Site Scaling TCO.</div>
+        </div>
+        <button class="btn sm secondary" onclick="demoStep(4)">Show 30-Day Pilot</button>
+      </div>
+      <div class="demo-step" data-step="5">
+        <div>
+          <div class="step-meta">06:20–08:00 · Governance &amp; GDPR</div>
+          <div class="step-title">5. Ethics, CSE &amp; Risk Gate</div>
+          <div class="step-note">Open Governance Blueprint: GAS model choice (why not LLM), GDPR/CSE no-attendance rule, EU AI Act boundary, ISO 42001 &amp; "Charged on Time" adoption.</div>
+        </div>
+        <button class="btn sm secondary" onclick="demoStep(5)">Open Governance</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════ MAIN DASHBOARD WORKSPACE ════════════════════ -->
+<main class="container">
+  <!-- KPI STRIP -->
+  <section class="kpis" id="kpiStrip" aria-label="Key performance indicators"></section>
+
+  <!-- LIVE STATUS / RECOMMENDATION / FEASIBILITY ALERT -->
+  <div class="alert-strip warn" id="statusBanner"></div>
+
+  <!-- NAVIGATION TABS -->
+  <nav class="tabs" role="tablist" aria-label="Dashboard views">
+    <button class="tab active" role="tab" aria-selected="true" data-view="overview">01 · Day-Ahead Forecast</button>
+    <button class="tab" role="tab" aria-selected="false" data-view="optimize">02 · Before vs Optimized</button>
+    <button class="tab" role="tab" aria-selected="false" data-view="manager">03 · Manager Control</button>
+    <button class="tab" role="tab" aria-selected="false" data-view="monitor">04 · 30-Day Pilot &amp; Monitoring</button>
+    <button class="tab" role="tab" aria-selected="false" data-view="governance">05 · Governance &amp; Case</button>
+  </nav>
+
+  <!-- ═══════════════ VIEW 01: DAY-AHEAD FORECAST (OVERVIEW) ═══════════════ -->
+  <section class="view active" id="view-overview">
+    <div class="grid-main">
+      <!-- HERO FORECAST CHART -->
+      <div class="card">
+        <div class="section-title">
+          <span>Tomorrow's Site Load &amp; EV Charging Forecast · 06:00–20:00</span>
+          <span class="sub" id="chartScenarioTag">SCENARIO: SUNNY DAY · 15-MIN RESOLUTION</span>
+        </div>
+        <div class="chart-toolbar">
+          <div class="telemetry" id="mainTelemetry"></div>
+          <div class="chart-toggles">
+            <label class="chk-label"><input type="checkbox" id="chkCompare" checked onchange="renderAll()"> Ghost Before Peak</label>
+            <label class="chk-label"><input type="checkbox" id="chkBands" onchange="renderAll()"> ±1σ Forecast Band</label>
+          </div>
+        </div>
+        <div class="svg-wrap" id="mainChartWrap"></div>
+      </div>
+
+      <!-- RIGHT RAIL: SITE CAPACITY + QUICK APPROVAL GATE -->
+      <div class="stack">
+        <div class="card accent-top">
+          <div class="section-title">
+            <span>Human-in-the-Loop Gate</span>
+            <span class="sub">AUTONOMY L3</span>
+          </div>
+          <div id="quickRecText" style="font-size:12.5px;color:var(--ink);margin-bottom:10px;line-height:1.45;"></div>
+          <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px;">
+            <button class="btn accent sm" onclick="runOptimize()">Optimize</button>
+            <button class="btn sm" onclick="approvePlan()">Approve Plan</button>
+            <button class="btn secondary sm" onclick="openModify()">Modify</button>
+            <button class="btn danger sm" onclick="rejectPlan()">Reject</button>
+          </div>
+          <div class="spec-list" id="capSpecs"></div>
+        </div>
+
+        <div class="card" style="flex:1;display:flex;flex-direction:column;justify-content:space-between;">
+          <div class="section-title">
+            <span>Solar &amp; Charger Utilization</span>
+            <span class="sub" id="utilSubtitle">35 SITE BAYS</span>
+          </div>
+          <div class="svg-wrap" id="miniUtilWrap"></div>
+          <div class="spec-list" id="utilSpecs" style="margin-top:8px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- EXPLAINABILITY INSPECTOR -->
+    <div class="card mt-14">
+      <div class="section-title">
+        <span>Explainability · "Why am I charging now?"</span>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <select id="explainSelect" onchange="selectExplainVehicle(this.value)" aria-label="Select vehicle to explain"></select>
+          <button class="btn sm secondary" onclick="cycleExplain()">Next EV</button>
+        </div>
+      </div>
+      <div class="explain-box" id="explainPanel"></div>
+    </div>
+
+    <!-- EV CHARGING SESSIONS TABLE -->
+    <div class="card mt-14">
+      <div class="section-title">
+        <span id="evTableHeading">EV Charging Sessions · 12 Representative (of 28 Connected Site EVs)</span>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span class="sub">NO EMPLOYEE NAMES · ANONYMIZED SESSION IDS ONLY</span>
+          <button class="btn sm secondary" id="toggleFleetBtn" onclick="toggleShowAllEVs()">Show All 28 EVs</button>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table id="evTable"></table>
+      </div>
+    </div>
+
+    <!-- PRIVACY NOTICE -->
+    <div class="privacy-bar mt-14">
+      <div><strong>PRIVACY &amp; GDPR GUARDRAIL:</strong> Charging information is used only for energy scheduling in this demonstration. No employee identity or attendance analysis.</div>
+      <div class="sub">Data minimization · 30-day retention · Grouped HR reporting only · CSE consulted pre-launch</div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ VIEW 02: BEFORE VS OPTIMIZED ═══════════════ -->
+  <section class="view" id="view-optimize">
+    <div class="card accent-top">
+      <div class="section-title">
+        <span>AI Optimization Comparison · Uncoordinated vs Constrained Schedule</span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn accent sm" onclick="runOptimize()">Run Optimize Tomorrow</button>
+          <button class="btn secondary sm" onclick="resetBaseline()">View Baseline Only</button>
+        </div>
+      </div>
+      <div class="explain-box" id="optRecBanner" style="margin-bottom:12px;"></div>
+      <div class="strip-grid" id="optOutcomeGrid"></div>
+    </div>
+
+    <div class="grid-2 mt-14">
+      <div class="card danger-top">
+        <div class="section-title">
+          <span>BEFORE · Uncoordinated Morning Plug-In</span>
+          <span class="sub" id="beforePeakTag"></span>
+        </div>
+        <div class="svg-wrap" id="beforeChartWrap"></div>
+      </div>
+      <div class="card accent-top">
+        <div class="section-title">
+          <span>OPTIMIZED · SmartCharge AI Constrained Plan</span>
+          <span class="sub" id="afterPeakTag"></span>
+        </div>
+        <div class="svg-wrap" id="afterChartWrap"></div>
+      </div>
+    </div>
+
+    <div class="grid-2 mt-14">
+      <div class="card">
+        <div class="section-title">
+          <span>Where Business Value Actually Comes From (SIMULATED)</span>
+          <span class="sub">PROPOSAL §05 INSIGHT</span>
+        </div>
+        <p style="margin:0 0 12px;color:var(--ink-dim);font-size:12.5px;">
+          Most financial value comes from <strong style="color:var(--ink)">cutting power peaks</strong> and <strong style="color:var(--ink)">avoiding a costly grid connection upgrade</strong> (360 kVA → 500 kVA). Pure per-kWh tariff savings are smaller.
+        </p>
+        <div id="valueBreakdown"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <span>3-Step AI Architecture · No Black-Box LLM Control</span>
+          <span class="sub">PREDICT → PLAN → HUMAN CHECK</span>
+        </div>
+        <div class="pipeline">
+          <div class="pipe-step">
+            <div class="pnum">STEP 01 · ML FORECAST</div>
+            <h4>Predict</h4>
+            <p>Time-series models forecast 15-min building load, solar canopy PV, and EV dwell profiles using meter history, calendar &amp; weather.</p>
+          </div>
+          <div class="pipe-step opt">
+            <div class="pnum">STEP 02 · LP/MIP SOLVER</div>
+            <h4>Plan</h4>
+            <p>Constrained mathematical optimizer shifts EV kW into solar &amp; valley slots under hard departure SoC, charger &amp; site peak caps.</p>
+          </div>
+          <div class="pipe-step hitl">
+            <div class="pnum">STEP 03 · L3 GOVERNANCE</div>
+            <h4>Human Check</h4>
+            <p>Facility manager inspects rationales, approves/overrides plan, and signs OCPP charger schedules. Local edge fail-safe protects breakers.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ VIEW 03: MANAGER CONTROL (HITL) ═══════════════ -->
+  <section class="view" id="view-manager">
+    <div class="card">
+      <div class="section-title">
+        <span>Manager Constraint Controls &amp; Human Approval Gate</span>
+        <span class="sub">EVERY CONSTRAINT CHANGE &amp; OVERRIDE IS LOGGED IMMUTABLY</span>
+      </div>
+      <div class="ctrl-grid">
+        <div class="ctrl-box">
+          <label><span>Maximum Site Demand (kW)</span><strong id="lblMaxDemand">350 kW</strong></label>
+          <input type="range" id="rngMaxDemand" min="270" max="460" step="5" value="350" oninput="syncDemandInput(this.value)">
+          <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--ink-muted);margin-top:4px;">
+            <span>270 kW (tight)</span><span>350 kW (contract)</span><span>460 kW</span>
+          </div>
+        </div>
+        <div class="ctrl-box">
+          <label><span>Minimum Vehicle Charge (%)</span><strong id="lblMinCharge">80%</strong></label>
+          <input type="range" id="rngMinCharge" min="50" max="95" step="5" value="80" oninput="syncChargeInput(this.value)">
+          <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--ink-muted);margin-top:4px;">
+            <span>50% (flex)</span><span>80% (standard)</span><span>95% (full)</span>
+          </div>
+        </div>
+        <div class="ctrl-box">
+          <label><span>Priority Vehicle Policy (HR-Agreed)</span><strong>POLICY</strong></label>
+          <select id="selPriorityMode" onchange="applyManagerControls()">
+            <option value="balanced">Balanced (High-Priority Morning Floor + Fair Queue)</option>
+            <option value="high">High-Priority First (Pool &amp; Long-Commute EVs)</option>
+            <option value="fair">Strict Equal Queue (No Priority Tiering)</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-top:14px;padding-top:12px;border-top:1px solid var(--line);">
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <button class="btn accent" onclick="approvePlan()">Approve Plan</button>
+          <button class="btn secondary" id="btnModifyToggle" onclick="toggleModifyMode()">Modify Plan</button>
+          <button class="btn danger" onclick="rejectPlan()">Reject Plan</button>
+        </div>
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+          <button class="btn solar" id="btnFailSafe" onclick="toggleFailSafe()">Simulate Cloud Outage → Edge Fail-Safe</button>
+        </div>
+      </div>
+      <div id="managerFeedback" style="margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--ink-dim);"></div>
+    </div>
+
+    <!-- URGENT BUSINESS TRIP + INLINE MODIFY EDITOR -->
+    <div class="grid-2 mt-14">
+      <div class="card warn-top">
+        <div class="section-title">
+          <span>Urgent Business Trip · Instant Re-Optimization</span>
+          <span class="sub">11 kW BOOST + AUTOMATIC FLEET REBALANCING</span>
+        </div>
+        <p style="margin:0 0 10px;color:var(--ink-dim);font-size:12px;">
+          If an employee needs a vehicle unexpectedly for a client visit, the manager flags an Urgent Business Trip. The optimizer grants immediate 11 kW charging and shifts flexible vehicles later to hold the site peak cap.
+        </p>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+          <select id="urgentSelect" aria-label="Select vehicle for urgent trip"></select>
+          <button class="btn solar" onclick="activateUrgentTrip()">Activate Urgent Trip (Re-Optimize)</button>
+          <button class="btn secondary sm" id="clearUrgentBtn" onclick="clearUrgentTrips()" style="display:none;">Clear Urgent Flags</button>
+        </div>
+        <div id="urgentStatusBox" style="margin-top:10px;font-family:var(--mono);font-size:12px;color:var(--solar);"></div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <span>Immutable Override &amp; Decision Audit Log</span>
+          <span class="sub" id="overrideSummaryTag">OVERRIDES: 0</span>
+        </div>
+        <div class="audit-log" id="auditLog"></div>
+      </div>
+    </div>
+
+    <!-- INLINE MODIFY PLAN TABLE (VISIBLE WHEN MODIFY PLAN IS ACTIVE) -->
+    <div class="card mt-14" id="modifyPanel" style="display:none;border-top:2px solid var(--building);">
+      <div class="section-title">
+        <span>Modify Plan · Manual Per-Vehicle Priority &amp; Departure Overrides (12 Representative EVs)</span>
+        <button class="btn sm accent" onclick="commitModifications()">Save &amp; Re-Optimize</button>
+      </div>
+      <div class="table-wrap">
+        <table id="modifyTable"></table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ VIEW 04: 30-DAY PILOT & MONITORING ═══════════════ -->
+  <section class="view" id="view-monitor">
+    <!-- 6 REQUIRED MONITORING KPIS -->
+    <div class="card">
+      <div class="section-title">
+        <span>Operational Monitoring Metrics · Live Production Telemetry (Simulated)</span>
+        <span class="sub">WEEKLY REVIEW · SEASONAL MODEL RETRAINING</span>
+      </div>
+      <div class="strip-grid cols-6" id="monitorStrip"></div>
+    </div>
+
+    <!-- 30-DAY SIMULATED PILOT VS MATCHED CONTROL SITE -->
+    <div class="card accent-top mt-14">
+      <div class="section-title">
+        <span>30-Day Site Pilot Simulation · Pilot Site A (SmartCharge AI) vs Matched Control Site B</span>
+        <span class="sub">FEASIBILITY TEST (SIMULATED) · NOT PRODUCTION ROI PROOF</span>
+      </div>
+      <div class="chart-toolbar">
+        <div class="telemetry" id="pilotTelemetry">Hover any day (D01–D30) to inspect weather, baseline peak, AI peak &amp; simulated daily saving.</div>
+        <div class="mono" style="font-size:11px;color:var(--accent);" id="pilotTotalsTag"></div>
+      </div>
+      <div class="svg-wrap" id="pilotChartWrap"></div>
+    </div>
+
+    <!-- 3-LAYER MLOPS MONITORING HEALTH (DATA / MODEL / OPS & CYBER) -->
+    <div class="grid-3 mt-14">
+      <div class="card">
+        <div class="section-title"><span>Data Layer Health</span><span class="tag ok">HEALTHY</span></div>
+        <div class="spec-list">
+          <div class="spec-row"><span class="k">Smart Meter Uptime</span><span class="v" style="color:var(--accent)">99.6%</span></div>
+          <div class="spec-row"><span class="k">OCPP Charger Telemetry Lag</span><span class="v">6.4 sec</span></div>
+          <div class="spec-row"><span class="k">Missing 15-min Intervals</span><span class="v">0.2% (&lt;1% SLA)</span></div>
+          <div class="spec-row"><span class="k">Tariff Table Version</span><span class="v">FR-C4-2026.4</span></div>
+          <div class="spec-row"><span class="k">Weather API Sync</span><span class="v">D+1 Verified</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title"><span>Model &amp; Solver Health</span><span class="tag ok">IN BOUNDS</span></div>
+        <div class="spec-list">
+          <div class="spec-row"><span class="k">Building Load Forecast MAE</span><span class="v" id="monLoadMae">±4.1%</span></div>
+          <div class="spec-row"><span class="k">Solar Forecast MAE</span><span class="v" id="monSolarMae">±6.4%</span></div>
+          <div class="spec-row"><span class="k">90% Interval Coverage</span><span class="v">91.2%</span></div>
+          <div class="spec-row"><span class="k">Schedule Feasibility Rate</span><span class="v" id="monFeasRate" style="color:var(--accent)">100%</span></div>
+          <div class="spec-row"><span class="k">Retraining Cadence</span><span class="v">Seasonal + Event Drift</span></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="section-title"><span>Ops, Rollback &amp; Cybersecurity</span><span class="tag ok">SIGNED</span></div>
+        <div class="spec-list">
+          <div class="spec-row"><span class="k">Charger Protocol Security</span><span class="v">OCPP 2.0.1 / TLS 1.3</span></div>
+          <div class="spec-row"><span class="k">Local Edge Fail-Safe</span><span class="v" id="monFailSafe">ARMED (3.7 kW Cap)</span></div>
+          <div class="spec-row"><span class="k">Auto-Rollback Trigger</span><span class="v">Ready &lt;98% or Ovr &gt;20%</span></div>
+          <div class="spec-row"><span class="k">Incident Owner</span><span class="v">Site Facility Lead</span></div>
+          <div class="spec-row"><span class="k">Model Registry Version</span><span class="v">smartcharge-v1.4.2</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MULTI-SITE SCALING & "WHAT IF IT SUCCEEDS?" TCO SIMULATOR -->
+    <div class="card mt-14">
+      <div class="section-title">
+        <span>Multi-Site Scaling &amp; Operating Cost Reality Check (SIMULATED)</span>
+        <span class="sub">BUILD VS BUY · INCLUDES RECURRING MLOPS, OVERSIGHT &amp; CHANGE-MGMT COSTS</span>
+      </div>
+      <div class="grid-2">
+        <div class="ctrl-box">
+          <label><span>Workplace Sites Rolled Out</span><strong id="lblSites">5 Sites</strong></label>
+          <input type="range" id="rngSites" min="1" max="15" step="1" value="5" oninput="renderScaling()">
+          <div style="margin-top:12px;">
+            <label><span>Delivery Strategy (Build vs Buy vs Assemble)</span></label>
+            <select id="selBuildBuy" onchange="renderScaling()">
+              <option value="assemble">Assemble (Vendor OCPP BMS + Custom Optimization Layer) — Recommended</option>
+              <option value="buy">Buy (Turnkey Energy SaaS Subscription)</option>
+              <option value="build">Build In-House (Full Custom ML + Hardware Connectors)</option>
+            </select>
+          </div>
+          <p style="margin:10px 0 0;font-size:11.5px;color:var(--ink-dim);line-height:1.45;">
+            Scaling rule: prioritize high-peak sites first, isolate tenants per site, standardize OCPP charger adapters, and budget recurring MLOps + manager oversight + employee onboarding (not just initial build cost).
+          </p>
+        </div>
+        <div class="ctrl-box" id="scalingOutput"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ VIEW 05: GOVERNANCE, PRIVACY & MANAGERIAL CASE ═══════════════ -->
+  <section class="view" id="view-governance">
+    <!-- AUTONOMY LADDER -->
+    <div class="card accent-top">
+      <div class="section-title">
+        <span>AI Autonomy Ladder · Deliberate Placement at Level 3</span>
+        <span class="sub">GRADUATE TO L4 ONLY AFTER MATCHED-SITE PILOT PROOF</span>
+      </div>
+      <div class="ladder">
+        <div class="rung"><div class="r-lvl">LEVEL 0</div><div class="r-name">No AI</div><div class="r-desc">Fixed plug-in charging; manual breaker management.</div></div>
+        <div class="rung"><div class="r-lvl">LEVEL 1</div><div class="r-name">Inform</div><div class="r-desc">Load forecast dashboard only; no schedule proposed.</div></div>
+        <div class="rung"><div class="r-lvl">LEVEL 2</div><div class="r-name">Recommend</div><div class="r-desc">Proposes windows; human enters charger limits manually.</div></div>
+        <div class="rung current"><div class="r-lvl">LEVEL 3 · ACTIVE</div><div class="r-name">Act w/ Approval</div><div class="r-desc">AI builds signed day-ahead plan; manager approves or overrides before charger dispatch.</div></div>
+        <div class="rung next"><div class="r-lvl">LEVEL 4 · SCALE</div><div class="r-name">Bounded Auto</div><div class="r-desc">Auto-executes within strict peak/SoC caps; escalates exceptions &amp; anomalies.</div></div>
+        <div class="rung"><div class="r-lvl">LEVEL 5</div><div class="r-name">High Autonomy</div><div class="r-desc">Unbounded autonomous grid dispatch (rejected for workplace trust).</div></div>
+      </div>
+    </div>
+
+    <!-- GAS DECISION MATRIX + REGULATORY GUARDRAILS -->
+    <div class="grid-2 mt-14">
+      <div class="card">
+        <div class="section-title">
+          <span>Model Choice Decision Matrix (GAS Framework)</span>
+          <span class="sub">WHY FORECAST + LP OPTIMIZER BEATS LLM-ONLY</span>
+        </div>
+        <div class="table-wrap">
+          <table class="wrap-table">
+            <thead>
+              <tr>
+                <th>Approach</th>
+                <th>Peak Control</th>
+                <th>Hard Feasibility</th>
+                <th>Explainability</th>
+                <th>OpEx / Carbon</th>
+                <th>Verdict</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>Fixed Timers (No AI)</td>
+                <td>Low</td>
+                <td>Poor (Rebound)</td>
+                <td>High</td>
+                <td>Very Low</td>
+                <td><span class="tag dim">Baseline</span></td>
+              </tr>
+              <tr class="selected">
+                <td><strong>TS Forecast + LP/MIP</strong></td>
+                <td><strong>High</strong></td>
+                <td><strong>100% Guaranteed</strong></td>
+                <td><strong>High (Rules)</strong></td>
+                <td><strong>Frugal / Edge</strong></td>
+                <td><span class="tag ok">Selected</span></td>
+              </tr>
+              <tr>
+                <td>Deep RL Control</td>
+                <td>High</td>
+                <td>Soft (Reward)</td>
+                <td>Low (Black Box)</td>
+                <td>High Training</td>
+                <td><span class="tag warn">Overkill</span></td>
+              </tr>
+              <tr>
+                <td>LLM-Only Scheduler</td>
+                <td>Unreliable</td>
+                <td>Hallucination Risk</td>
+                <td>Plausible only</td>
+                <td>High Tokens</td>
+                <td><span class="tag danger">Rejected</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <p style="margin:10px 0 0;font-size:12px;color:var(--ink-dim);">
+          <strong style="color:var(--ink)">Frugal AI principle:</strong> Use classical time-series ML + deterministic constrained optimization for kilowatt scheduling. Reserve text templates/LLM strictly for optional human explanations — never for setting charger currents.
+        </p>
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <span>Compliance &amp; Responsible AI Guardrails</span>
+          <span class="sub">EU AI ACT · GDPR · CSE · ISO 42001 · NIST</span>
+        </div>
+        <div class="spec-list">
+          <div class="spec-row"><span class="k">EU AI Act Class</span><span class="v" style="color:var(--accent)">Minimal / Operational Optimization</span></div>
+          <div class="spec-row"><span class="k">High-Risk Boundary</span><span class="v">Strict block on HR / attendance reuse</span></div>
+          <div class="spec-row"><span class="k">GDPR Controls</span><span class="v">Purpose limit · Min data · 30d purge</span></div>
+          <div class="spec-row"><span class="k">Works Council (CSE)</span><span class="v">Consulted prior to pilot launch</span></div>
+          <div class="spec-row"><span class="k">Priority Fairness</span><span class="v">Published policy co-signed with HR</span></div>
+          <div class="spec-row"><span class="k">Cybersecurity</span><span class="v">Segmented OT VLAN · Signed OCPP plans</span></div>
+          <div class="spec-row"><span class="k">Accountable Owner</span><span class="v">Named Site Energy Manager (ISO 42001)</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STAKEHOLDERS, CHANGE MGMT & INNOVATION FUNNEL -->
+    <div class="grid-2 mt-14">
+      <div class="card">
+        <div class="section-title">
+          <span>Stakeholders &amp; Change Management (10–20–70 Rule)</span>
+          <span class="sub">"CHARGED ON TIME" NOT "CHARGED NOW"</span>
+        </div>
+        <div class="table-wrap">
+          <table class="wrap-table">
+            <thead>
+              <tr><th>Stakeholder</th><th>Pain Today</th><th>With SmartCharge AI</th><th>Adoption Enabler</th></tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Facility Manager</strong></td>
+                <td>Manual peak firefighting</td>
+                <td>Reviews &amp; approves 1 plan/day</td>
+                <td>1-click override &amp; fail-safe</td>
+              </tr>
+              <tr>
+                <td><strong>Employees</strong></td>
+                <td>Fear of uncharged car</td>
+                <td>100% ready by departure</td>
+                <td>"Why now?" + Urgent Trip button</td>
+              </tr>
+              <tr>
+                <td><strong>CSR / Finance</strong></td>
+                <td>High bills, unclear CO₂</td>
+                <td>Verified peak &amp; solar KPIs</td>
+                <td>Avoided grid upgrade CapEx</td>
+              </tr>
+              <tr>
+                <td><strong>HR &amp; CSE</strong></td>
+                <td>Surveillance anxiety</td>
+                <td>Zero individual tracking</td>
+                <td>Grouped KPIs only; clear policy</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="section-title">
+          <span>Pilot-to-Scale Funnel Roadmap</span>
+          <span class="sub">DE-RISK BEFORE INDUSTRIALIZATION</span>
+        </div>
+        <div class="spec-list">
+          <div class="spec-row"><span class="k">Stage 1 · PoC (Now, 4 wks)</span><span class="v" style="color:var(--accent)">1-Month Feasibility Simulation</span></div>
+          <div class="spec-row"><span class="k">Stage 2 · Shadow Pilot (4 wks)</span><span class="v">AI forecasts vs real meters (no actuation)</span></div>
+          <div class="spec-row"><span class="k">Stage 3 · Live Pilot (12 wks)</span><span class="v">Site A (AI) vs Matched Control Site B</span></div>
+          <div class="spec-row"><span class="k">Gate Criteria (Go / No-Go)</span><span class="v">Peak −12%+, Ready ≥99%, Overrides &lt;15%</span></div>
+          <div class="spec-row"><span class="k">Stage 4 · Multi-Site Scale</span><span class="v">High-peak sites first · Tenant isolation</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer class="footer">
+    SmartCharge AI – Workplace Energy Manager · GEM MSc Managing with Data &amp; AI Group Project PoC · Synthetic &amp; Deterministic Simulation · All Financial Values SIMULATED · Zero External APIs
+  </footer>
+</main>
+
+<script>
+// ═══════════════════════════════════════════════════════════════════════════
+// SMARTCHARGE AI — DETERMINISTIC WORKPLACE ENERGY SIMULATION ENGINE
+// 100% client-side, deterministic, zero external APIs or dependencies.
+// ═══════════════════════════════════════════════════════════════════════════
+
+const N = 56; // 06:00 to 19:45 in 15-minute intervals (56 slots = 14 hours)
+const DT = 0.25; // hours per slot
+const TOTAL_CHARGERS = 35;
+
+function slotToTime(s) {
+  const mins = 360 + s * 15;
+  return String(Math.floor(mins / 60)).padStart(2, '0') + ':' + String(mins % 60).padStart(2, '0');
+}
+function timeToSlot(t) {
+  const [h, m] = t.split(':').map(Number);
+  return Math.max(0, Math.min(N, Math.round((h * 60 + m - 360) / 15)));
+}
+
+const SCENARIOS = {
+  sunny: {
+    key: 'sunny',
+    label: 'Sunny Day',
+    short: 'SUNNY DAY',
+    solarKwh: 186,
+    loadMae: '±3.8%',
+    solarMae: '±5.2%',
+    desc: 'Clear sky (186 kWh solar canopy PV). Uncoordinated 09:00 plug-ins drive a 412 kW site peak (+62 kW over 350 kW contract). AI shifts charging into midday solar hours.'
+  },
+  cloudy: {
+    key: 'cloudy',
+    label: 'Cloudy Day',
+    short: 'CLOUDY DAY',
+    solarKwh: 54,
+    loadMae: '±4.4%',
+    solarMae: '±9.1%',
+    desc: 'Heavy overcast (-71% solar, 54 kWh). Lower midday PV offset pushes baseline peak to 436 kW. AI flattens charging across off-peak grid valleys instead of clustering at noon.'
+  },
+  cold: {
+    key: 'cold',
+    label: 'Cold Morning',
+    short: 'COLD MORNING (-2°C)',
+    solarKwh: 132,
+    loadMae: '±5.1%',
+    solarMae: '±6.5%',
+    desc: 'Cold snap adds +58 kW HVAC pre-heating (06:30–10:30) and +15% EV winter energy demand. Baseline spikes to 461 kW. AI delays flexible EVs until morning heating eases.'
+  },
+  occ80: {
+    key: 'occ80',
+    label: '80% Charger Occupancy',
+    short: '80% OCCUPANCY',
+    solarKwh: 186,
+    loadMae: '±4.2%',
+    solarMae: '±5.4%',
+    desc: 'High mid-week attendance (28/35 bays occupied, +22% fleet energy need & tighter dwell slack). Baseline hits 454 kW. AI rotates chargers by HR-agreed priority rules.'
+  },
+  unexpected: {
+    key: 'unexpected',
+    label: 'Unexpected Building Peak',
+    short: 'UNEXPECTED PEAK',
+    solarKwh: 186,
+    loadMae: '±6.9%',
+    solarMae: '±5.3%',
+    desc: 'Sudden +92 kW midday building equipment spike (11:30–13:45). Naive noon shifting would cause a rebound peak! AI curtails midday EV charging and splits across clean shoulders.'
+  }
+};
+
+// 28 Workplace EVs (EV-01..EV-12 = 12 representative demo sessions; EV-13..EV-28 = rest of 28-EV site fleet)
+// Zero employee names — strictly anonymized Vehicle & Charger IDs.
+const BASE_VEHICLES = [
+  { id: 'EV-01', charger: 'C-01', arr: '07:30', dep: '16:30', req: 18, soc: 42, bat: 64, prio: 'Normal', rep: true },
+  { id: 'EV-02', charger: 'C-02', arr: '08:00', dep: '17:00', req: 21, soc: 44, bat: 72, prio: 'High',   rep: true },
+  { id: 'EV-03', charger: 'C-03', arr: '08:15', dep: '17:30', req: 14, soc: 58, bat: 60, prio: 'Normal', rep: true },
+  { id: 'EV-04', charger: 'C-04', arr: '08:30', dep: '18:00', req: 24, soc: 32, bat: 75, prio: 'High',   rep: true },
+  { id: 'EV-05', charger: 'C-05', arr: '08:45', dep: '16:00', req: 17, soc: 50, bat: 64, prio: 'Normal', rep: true },
+  { id: 'EV-06', charger: 'C-06', arr: '09:00', dep: '17:30', req: 19, soc: 42, bat: 68, prio: 'Normal', rep: true },
+  { id: 'EV-07', charger: 'C-07', arr: '09:15', dep: '18:30', req: 13, soc: 62, bat: 60, prio: 'Low',    rep: true },
+  { id: 'EV-08', charger: 'C-08', arr: '08:15', dep: '17:30', req: 19, soc: 48, bat: 60, prio: 'Normal', rep: true },
+  { id: 'EV-09', charger: 'C-09', arr: '08:45', dep: '17:45', req: 16, soc: 54, bat: 64, prio: 'Normal', rep: true },
+  { id: 'EV-10', charger: 'C-10', arr: '08:45', dep: '16:30', req: 15, soc: 50, bat: 58, prio: 'Normal', rep: true },
+  { id: 'EV-11', charger: 'C-11', arr: '08:30', dep: '18:15', req: 23, soc: 34, bat: 75, prio: 'High',   rep: true },
+  { id: 'EV-12', charger: 'C-12', arr: '09:00', dep: '17:30', req: 16, soc: 56, bat: 64, prio: 'Low',    rep: true },
+  // 16 Additional Connected Site Fleet EVs (sum = 28 EVs)
+  { id: 'EV-13', charger: 'C-13', arr: '08:00', dep: '16:45', req: 16, soc: 48, bat: 64, prio: 'Normal', rep: false },
+  { id: 'EV-14', charger: 'C-14', arr: '08:15', dep: '17:15', req: 18, soc: 44, bat: 68, prio: 'Normal', rep: false },
+  { id: 'EV-15', charger: 'C-15', arr: '08:30', dep: '17:00', req: 15, soc: 54, bat: 60, prio: 'Normal', rep: false },
+  { id: 'EV-16', charger: 'C-16', arr: '08:30', dep: '18:00', req: 20, soc: 40, bat: 70, prio: 'High',   rep: false },
+  { id: 'EV-17', charger: 'C-17', arr: '08:45', dep: '17:30', req: 16, soc: 50, bat: 64, prio: 'Normal', rep: false },
+  { id: 'EV-18', charger: 'C-18', arr: '08:45', dep: '16:30', req: 14, soc: 56, bat: 58, prio: 'Low',    rep: false },
+  { id: 'EV-19', charger: 'C-19', arr: '08:45', dep: '17:45', req: 18, soc: 46, bat: 68, prio: 'Normal', rep: false },
+  { id: 'EV-20', charger: 'C-20', arr: '09:00', dep: '18:15', req: 19, soc: 42, bat: 72, prio: 'Normal', rep: false },
+  { id: 'EV-21', charger: 'C-21', arr: '09:00', dep: '16:45', req: 15, soc: 52, bat: 60, prio: 'Normal', rep: false },
+  { id: 'EV-22', charger: 'C-22', arr: '09:00', dep: '17:30', req: 17, soc: 48, bat: 64, prio: 'Normal', rep: false },
+  { id: 'EV-23', charger: 'C-23', arr: '09:00', dep: '18:00', req: 18, soc: 46, bat: 68, prio: 'Low',    rep: false },
+  { id: 'EV-24', charger: 'C-24', arr: '08:30', dep: '17:15', req: 21, soc: 36, bat: 72, prio: 'High',   rep: false },
+  { id: 'EV-25', charger: 'C-25', arr: '08:45', dep: '17:00', req: 15, soc: 52, bat: 60, prio: 'Normal', rep: false },
+  { id: 'EV-26', charger: 'C-26', arr: '08:45', dep: '17:30', req: 17, soc: 48, bat: 64, prio: 'Normal', rep: false },
+  { id: 'EV-27', charger: 'C-27', arr: '09:00', dep: '18:15', req: 18, soc: 44, bat: 68, prio: 'Normal', rep: false },
+  { id: 'EV-28', charger: 'C-28', arr: '08:45', dep: '18:30', req: 19, soc: 40, bat: 72, prio: 'Low',    rep: false }
+];
+
+// Application State
+const state = {
+  scenario: 'sunny',
+  optimized: false,
+  planStatus: 'BASELINE', // BASELINE | PENDING | APPROVED | MODIFIED | REJECTED | FAILSAFE
+  planHash: 'UNSIGNED (DRAFT)',
+  maxDemand: 350,
+  minCharge: 80,
+  priorityMode: 'balanced',
+  failSafe: false,
+  modifyOpen: false,
+  showAllEVs: false,
+  selectedVehicleId: 'EV-08',
+  urgentIds: new Set(),
+  vehicleOverrides: {}, // id -> { prio?, dep?, lockMorning? }
+  overrideCount: 0,
+  totalDecisions: 16, // rolling pilot baseline denominator for override rate
+  hoverSlot: null,
+  auditLog: [
+    { ts: '07:45:02', act: 'INGEST', cls: '', msg: 'Day-ahead meter, weather & tariff feeds validated (0 missing intervals; 28 EV reservations).' },
+    { ts: '07:45:14', act: 'FORECAST', cls: '', msg: 'Baseline uncoordinated peak forecast: 412 kW at 09:15 (+62 kW over 350 kW contract limit).' }
+  ]
+};
+
+let lastSim = null;
+
+function logAudit(act, msg, cls = '') {
+  const now = new Date();
+  const ts = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0') + ':' + String(now.getSeconds()).padStart(2, '0');
+  state.auditLog.unshift({ ts, act, cls, msg });
+  if (state.auditLog.length > 30) state.auditLog.pop();
+}
+
+function getTariff(slot) {
+  const h = 6 + (slot + 0.5) * DT;
+  if ((h >= 8 && h < 11) || (h >= 17 && h < 19.5)) return 0.22; // Peak
+  if (h >= 11 && h < 17) return 0.14; // Midday shoulder
+  return 0.11; // Off-peak
+}
+
+function getSolarProfile(sc) {
+  const raw = [];
+  for (let i = 0; i < N; i++) {
+    const h = 6 + (i + 0.5) * DT;
+    const v = (h >= 7.5 && h <= 18.75) ? Math.pow(Math.sin((h - 7.5) / 11.25 * Math.PI), 2.1) : 0;
+    raw.push(v);
+  }
+  const sumKwh = raw.reduce((a, b) => a + b, 0) * DT;
+  const target = SCENARIOS[sc].solarKwh;
+  return raw.map(v => +(v / sumKwh * target).toFixed(1));
+}
+
+function getBuildingProfile(sc) {
+  const b = [];
+  for (let i = 0; i < N; i++) {
+    const h = 6 + (i + 0.5) * DT;
+    let v = 114;
+    if (h < 8) v += (h - 6) / 2 * 84;
+    else if (h < 9.75) v += 84 + 35 * Math.sin((h - 8) / 1.75 * Math.PI / 2);
+    else if (h < 12) v += 119 - (h - 9.75) / 2.25 * 10;
+    else if (h < 14.5) v += 109 - 5 * Math.sin((h - 12) / 2.5 * Math.PI);
+    else if (h < 17) v += 109 + 11 * Math.sin((h - 14.5) / 2.5 * Math.PI);
+    else v += Math.max(16, 109 - (h - 17) / 3 * 93);
+
+    if (sc === 'cold' && h >= 6.5 && h <= 10.5) v += 58 * Math.sin((h - 6.5) / 4 * Math.PI);
+    if (sc === 'cloudy') v += 12;
+    if (sc === 'unexpected' && h >= 11.5 && h <= 13.75) v += 92 * Math.sin((h - 11.5) / 2.25 * Math.PI);
+    b.push(Math.round(v));
+  }
+  return b;
+}
+
+function summarizeBlocks(alloc) {
+  const blocks = [];
+  let start = -1;
+  for (let i = 0; i <= N; i++) {
+    const active = i < N && alloc[i] > 0.2;
+    if (active && start === -1) start = i;
+    else if (!active && start !== -1) {
+      blocks.push([start, i]);
+      start = -1;
+    }
+  }
+  if (!blocks.length) return { label: 'None', blocks: [] };
+  const label = blocks.map(([a, b]) => `${slotToTime(a)}–${slotToTime(b)}`).join(', ');
+  return { label, blocks };
+}
+
+function computeEconomics(grid, ev, solar, targetPeak) {
+  let energyCost = 0;
+  let solarDirectKwh = 0;
+  let totalSolarKwh = 0;
+  let totalEvKwh = 0;
+  for (let i = 0; i < N; i++) {
+    const t = getTariff(i);
+    energyCost += grid[i] * DT * t;
+    totalSolarKwh += solar[i] * DT;
+    totalEvKwh += ev[i] * DT;
+    solarDirectKwh += Math.min(solar[i], ev[i]) * DT;
+  }
+  const peak = Math.max(...grid);
+  // Demand charge + excess contracted power penalty (amortized daily, SIMULATED)
+  const excessKw = Math.max(0, peak - targetPeak);
+  const demandCost = peak * 0.28 + excessKw * 1.18;
+  const solarSelfPct = totalSolarKwh > 0 ? Math.round((solarDirectKwh / totalSolarKwh) * 100) : 0;
+  return {
+    peak: Math.round(peak),
+    energyCost: +energyCost.toFixed(1),
+    demandCost: +demandCost.toFixed(1),
+    totalCost: Math.round(energyCost + demandCost),
+    solarSelfPct,
+    solarDirectKwh: Math.round(solarDirectKwh),
+    totalEvKwh: Math.round(totalEvKwh)
+  };
+}
+
+// ── CORE DETERMINISTIC CONSTRAINED OPTIMIZER ──
+function runSimulation() {
+  const sc = state.scenario;
+  const building = getBuildingProfile(sc);
+  const solar = getSolarProfile(sc);
+  const energyMult = sc === 'cold' ? 1.15 : sc === 'occ80' ? 1.22 : 1.0;
+  const baseRate = sc === 'occ80' ? 8.1 : 6.75;
+
+  // Prepare working vehicle list with overrides & minCharge
+  const fleet = BASE_VEHICLES.map(v => {
+    const ov = state.vehicleOverrides[v.id] || {};
+    const isUrgent = state.urgentIds.has(v.id);
+    const depStr = ov.dep || v.dep;
+    const basePrio = ov.prio || v.prio;
+    const prio = isUrgent ? 'Urgent' : basePrio;
+    const a = timeToSlot(v.arr);
+    const d = Math.max(a + 4, timeToSlot(depStr));
+    const minNeededForSoc = Math.max(0, (state.minCharge - v.soc) / 100 * v.bat);
+    const needKwh = +Math.max(v.req * energyMult, minNeededForSoc).toFixed(1);
+    const targetSoc = Math.min(100, Math.round(v.soc + (needKwh / v.bat) * 100));
+    return {
+      ...v,
+      dep: depStr,
+      prio,
+      basePrio,
+      isUrgent,
+      lockMorning: !!ov.lockMorning,
+      a,
+      d,
+      needKwh,
+      targetSoc
+    };
+  });
+
+  // 1) BASELINE (UNCOORDINATED): Plug in immediately on arrival
+  const evBefore = new Array(N).fill(0);
+  const beforeSchedules = {};
+  let readyBefore = 0;
+  for (const v of fleet) {
+    let rem = v.needKwh;
+    const alloc = new Array(N).fill(0);
+    for (let t = v.a; t < v.d && rem > 0.05; t++) {
+      const kw = Math.min(baseRate, rem / DT);
+      alloc[t] = kw;
+      evBefore[t] += kw;
+      rem -= kw * DT;
+    }
+    const delivered = +(v.needKwh - Math.max(0, rem)).toFixed(1);
+    const ready = rem <= 0.35;
+    if (ready) readyBefore++;
+    beforeSchedules[v.id] = { alloc, delivered, ready, summary: summarizeBlocks(alloc), finalSoc: Math.min(100, Math.round(v.soc + (delivered / v.bat) * 100)) };
+  }
+  const gridBefore = building.map((b, i) => +(Math.max(0, b + evBefore[i] - solar[i])).toFixed(1));
+
+  // 2) OPTIMIZED OR EDGE FAIL-SAFE SCHEDULE
+  const evAfter = new Array(N).fill(0);
+  const afterSchedules = {};
+  let readyAfter = 0;
+
+  if (state.failSafe) {
+    // Local Edge Fail-Safe: conservative 3.7 kW flat charger current limit across bays
+    for (const v of fleet) {
+      let rem = v.needKwh;
+      const alloc = new Array(N).fill(0);
+      const rate = v.isUrgent ? 7.4 : 3.7;
+      for (let t = v.a; t < v.d && rem > 0.05; t++) {
+        const kw = Math.min(rate, rem / DT);
+        alloc[t] = kw;
+        evAfter[t] += kw;
+        rem -= kw * DT;
+      }
+      const delivered = +(v.needKwh - Math.max(0, rem)).toFixed(1);
+      const ready = rem <= 0.35;
+      if (ready) readyAfter++;
+      afterSchedules[v.id] = { alloc, delivered, ready, summary: summarizeBlocks(alloc), finalSoc: Math.min(100, Math.round(v.soc + (delivered / v.bat) * 100)) };
+    }
+  } else {
+    // Constrained SmartCharge AI Optimizer
+    const prioWeight = (v) => {
+      if (v.prio === 'Urgent') return 0;
+      if (state.priorityMode === 'fair') return 2;
+      if (state.priorityMode === 'high') return v.prio === 'High' ? 1 : v.prio === 'Normal' ? 2 : 3;
+      return v.prio === 'High' ? 1 : v.prio === 'Normal' ? 2 : 3;
+    };
+
+    const ordered = [...fleet].sort((x, y) => {
+      const pw = prioWeight(x) - prioWeight(y);
+      if (pw !== 0) return pw;
+      const slackX = (x.d - x.a) * DT * 7.4 - x.needKwh;
+      const slackY = (y.d - y.a) * DT * 7.4 - y.needKwh;
+      return slackX - slackY;
+    });
+
+    for (const v of ordered) {
+      const maxKw = v.prio === 'Urgent' ? 11.0 : 7.4;
+      const stepBase = v.prio === 'Urgent' ? 5.5 : 3.7;
+      const alloc = new Array(N).fill(0);
+      let rem = v.needKwh;
+
+      // Balanced workplace policy: High-priority low-SoC EVs receive a safe 45% SoC floor on arrival if within cap
+      let morningFloorKwh = 0;
+      if (!v.isUrgent && state.priorityMode === 'balanced' && v.prio === 'High' && v.soc < 45) {
+        morningFloorKwh = Math.min(rem * 0.45, ((48 - v.soc) / 100) * v.bat);
+      }
+
+      while (rem > 0.05) {
+        let bestT = -1;
+        let bestScore = Infinity;
+        const stepKw = Math.min(stepBase, rem / DT);
+        const needMorningFloor = morningFloorKwh > 0.2 || v.lockMorning;
+
+        for (let t = v.a; t < v.d; t++) {
+          if (alloc[t] + stepKw > maxKw + 0.02) continue;
+          const projGrid = Math.max(0, building[t] + evAfter[t] + stepKw - solar[t]);
+          const capBuffer = state.maxDemand - 1.5;
+          const excess = Math.max(0, projGrid - capBuffer);
+
+          let score = 0;
+          // Hard site peak constraint penalty
+          if (excess > 0) score += 28000 + excess * 750;
+
+          if (v.prio === 'Urgent') {
+            // Immediate priority charging ASAP
+            score += (t - v.a) * 260;
+          } else if (needMorningFloor) {
+            // Deliver quick arrival safety buffer while respecting site cap
+            score += (t - v.a) * 45 + projGrid * 0.8;
+          } else {
+            // Economic + solar + peak-smoothing objective
+            score += getTariff(t) * 680;
+            // Prioritize strong solar canopy generation hours
+            score -= solar[t] * 7.6;
+            // Smooth valley-filling under cap
+            score += Math.pow(projGrid / Math.max(250, state.maxDemand), 5) * 220;
+            // Mild preference for High-priority completion before late afternoon
+            if (v.prio === 'High' && state.priorityMode === 'high') score += (t - v.a) * 2.4;
+          }
+
+          // Contiguity incentive so charging sessions form crisp blocks
+          if (alloc[t] > 0) score -= 9;
+          if (t > v.a && alloc[t - 1] > 0) score -= 5;
+          if (t < v.d - 1 && alloc[t + 1] > 0) score -= 5;
+
+          if (score < bestScore) {
+            bestScore = score;
+            bestT = t;
+          }
+        }
+
+        if (bestT === -1) break;
+        alloc[bestT] += stepKw;
+        evAfter[bestT] += stepKw;
+        rem -= stepKw * DT;
+        if (morningFloorKwh > 0) morningFloorKwh -= stepKw * DT;
+      }
+
+      const delivered = +(v.needKwh - Math.max(0, rem)).toFixed(1);
+      const ready = rem <= 0.35;
+      if (ready) readyAfter++;
+      afterSchedules[v.id] = { alloc, delivered, ready, summary: summarizeBlocks(alloc), finalSoc: Math.min(100, Math.round(v.soc + (delivered / v.bat) * 100)) };
+    }
+  }
+
+  const gridAfter = building.map((b, i) => +(Math.max(0, b + evAfter[i] - solar[i])).toFixed(1));
+
+  // Morning peak shift metric (08:30–11:00 = slots 10..20)
+  let mornBefore = 0, mornAfter = 0;
+  for (let t = 10; t < 20; t++) {
+    mornBefore += evBefore[t] * DT;
+    mornAfter += evAfter[t] * DT;
+  }
+  const shiftedPct = mornBefore > 0 ? Math.max(0, Math.round((1 - mornAfter / mornBefore) * 100)) : 0;
+
+  const econBefore = computeEconomics(gridBefore, evBefore, solar, state.maxDemand);
+  const econAfter = computeEconomics(gridAfter, evAfter, solar, state.maxDemand);
+
+  const activeEv = state.optimized ? evAfter : evBefore;
+  const activeGrid = state.optimized ? gridAfter : gridBefore;
+  const activeEcon = state.optimized ? econAfter : econBefore;
+  const activeSchedules = state.optimized ? afterSchedules : beforeSchedules;
+  const activeReady = state.optimized ? readyAfter : readyBefore;
+
+  // Peak timestamps
+  const peakSlotBefore = gridBefore.indexOf(Math.max(...gridBefore));
+  const peakSlotAfter = gridAfter.indexOf(Math.max(...gridAfter));
+  const peakSlotActive = activeGrid.indexOf(Math.max(...activeGrid));
+
+  // Feasibility checks
+  const capBreachAfter = econAfter.peak > state.maxDemand;
+  const socShortfallAfter = readyAfter < fleet.length;
+  const feasible = !capBreachAfter && !socShortfallAfter;
+
+  // Charger utilization per slot (# of active charging EVs / 35 chargers)
+  const activeChargers = new Array(N).fill(0);
+  for (const v of fleet) {
+    const sch = activeSchedules[v.id].alloc;
+    for (let t = 0; t < N; t++) if (sch[t] > 0.2) activeChargers[t]++;
+  }
+
+  // Savings split (SIMULATED)
+  const peakSavingEur = Math.max(0, Math.round(econBefore.demandCost - econAfter.demandCost));
+  const energySavingEur = Math.max(0, Math.round(econBefore.energyCost - econAfter.energyCost));
+  const totalDailySavingEur = peakSavingEur + energySavingEur;
+  const peakReductionPct = Math.round(((econAfter.peak - econBefore.peak) / econBefore.peak) * 100);
+  const solarLiftPp = econAfter.solarSelfPct - econBefore.solarSelfPct;
+
+  return {
+    sc,
+    building,
+    solar,
+    fleet,
+    evBefore,
+    evAfter,
+    gridBefore,
+    gridAfter,
+    activeEv,
+    activeGrid,
+    activeEcon,
+    econBefore,
+    econAfter,
+    beforeSchedules,
+    afterSchedules,
+    activeSchedules,
+    readyBefore,
+    readyAfter,
+    activeReady,
+    shiftedPct,
+    peakSlotBefore,
+    peakSlotAfter,
+    peakSlotActive,
+    capBreachAfter,
+    socShortfallAfter,
+    feasible,
+    activeChargers,
+    peakSavingEur,
+    energySavingEur,
+    totalDailySavingEur,
+    peakReductionPct,
+    solarLiftPp
+  };
+}
+
+// ── NATURAL-LANGUAGE EXPLAINABILITY PER VEHICLE ──
+function explainVehicle(sim, vId) {
+  const v = sim.fleet.find(x => x.id === vId) || sim.fleet[0];
+  const sch = sim.activeSchedules[v.id];
+  const beforeSch = sim.beforeSchedules[v.id];
+  const win = sch.summary.label;
+
+  // Compute solar overlap & grid headroom during this vehicle's charging slots
+  let solMatchKwh = 0, totalKwh = 0, minHeadroom = 999, avgSlotH = 0, slotCount = 0;
+  for (let t = 0; t < N; t++) {
+    if (sch.alloc[t] > 0.2) {
+      totalKwh += sch.alloc[t] * DT;
+      if (sim.solar[t] >= 12) solMatchKwh += sch.alloc[t] * DT;
+      minHeadroom = Math.min(minHeadroom, Math.round(state.maxDemand - sim.activeGrid[t]));
+      avgSlotH += 6 + (t + 0.5) * DT;
+      slotCount++;
+    }
+  }
+  const solarShare = totalKwh > 0 ? Math.round((solMatchKwh / totalKwh) * 100) : 0;
+  const avgH = slotCount > 0 ? avgSlotH / slotCount : 12;
+
+  let quote = '';
+  if (!state.optimized) {
+    quote = `Uncoordinated baseline: ${v.id} plugs in at ${v.arr} and draws immediately (${beforeSch.summary.label}), contributing directly to the ${sim.econBefore.peak} kW morning peak at ${slotToTime(sim.peakSlotBefore)}. Click "Optimize Tomorrow" to shift flexible energy into lower-cost solar hours.`;
+  } else if (state.failSafe) {
+    quote = `Edge Fail-Safe active: ${v.id} is throttled to a safe flat 3.7 kW profile (${win}) by the local charger controller so site breakers remain protected while cloud optimization is offline.`;
+  } else if (v.isUrgent) {
+    quote = `Urgent Business Trip override: ${v.id} is prioritized at 11 kW immediately (${win}) to reach ${sch.finalSoc}% before an early departure. Flexible Normal/Low-priority vehicles were shifted later to keep the site within ${state.maxDemand} kW.`;
+  } else if (state.scenario === 'unexpected') {
+    quote = `Charging scheduled for ${win} to steer clear of both the 09:00 arrival rush and the unexpected +92 kW midday building spike (11:30–13:45), ensuring ${sch.finalSoc}% charge by your ${v.dep} departure.`;
+  } else if (state.scenario === 'cloudy') {
+    quote = `Charging scheduled for ${win} because solar output is low today (${SCENARIOS.cloudy.solarKwh} kWh), so SmartCharge AI selected the lowest-tariff grid valley while keeping total site demand under ${state.maxDemand} kW before your ${v.dep} departure.`;
+  } else if (state.scenario === 'cold') {
+    quote = `Charging scheduled for ${win} to avoid competing with morning HVAC pre-heating (+58 kW before 10:30), while delivering ${v.needKwh} kWh (winter-adjusted) before your planned departure at ${v.dep}.`;
+  } else if (avgH >= 10.75 && avgH <= 16.0) {
+    quote = `Charging scheduled between ${win} because solar production is high (${solarShare}% solar-window aligned) and your planned departure is ${v.dep}, keeping site demand below the ${state.maxDemand} kW peak target.`;
+  } else {
+    quote = `Charging scheduled for ${win} under the HR-agreed ${v.prio}-priority policy to guarantee ${sch.finalSoc}% charge by ${v.dep} while preserving ${Math.max(0, minHeadroom)} kW of grid peak headroom.`;
+  }
+
+  return {
+    v,
+    sch,
+    win,
+    quote,
+    solarShare,
+    minHeadroom: minHeadroom === 999 ? 0 : minHeadroom
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// CUSTOM ZERO-DEPENDENCY BLUEPRINT SVG CHARTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function buildForecastSVG(containerId, config) {
+  const {
+    building, ev, solar, grid, targetPeak,
+    ghostGrid = null, showBands = false,
+    height = 310, interactive = false,
+    yMaxFixed = null
+  } = config;
+
+  const W = 820, H = height;
+  const pad = { top: 20, right: 20, bottom: 32, left: 48 };
+  const pw = W - pad.left - pad.right;
+  const ph = H - pad.top - pad.bottom;
+
+  const maxVal = yMaxFixed || Math.max(450, Math.ceil((Math.max(...grid, ...(ghostGrid || [0]), targetPeak) + 30) / 50) * 50);
+  const xOf = (i) => pad.left + (i / (N - 1)) * pw;
+  const yOf = (v) => pad.top + ph - (Math.max(0, Math.min(maxVal, v)) / maxVal) * ph;
+
+  const pathOf = (arr) => arr.map((v, i) => `${i === 0 ? 'M' : 'L'}${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
+  const areaOf = (arr) => `${pathOf(arr)} L${xOf(N - 1).toFixed(1)},${yOf(0).toFixed(1)} L${xOf(0).toFixed(1)},${yOf(0).toFixed(1)} Z`;
+
+  // Shaded breach regions (where grid > targetPeak)
+  let breachPath = '';
+  const yTarget = yOf(targetPeak);
+  let inBreach = false;
+  for (let i = 0; i < N; i++) {
+    if (grid[i] > targetPeak) {
+      if (!inBreach) {
+        breachPath += `M${xOf(i).toFixed(1)},${yTarget.toFixed(1)} `;
+        inBreach = true;
+      }
+      breachPath += `L${xOf(i).toFixed(1)},${yOf(grid[i]).toFixed(1)} `;
+    } else if (inBreach) {
+      breachPath += `L${xOf(i - 1).toFixed(1)},${yTarget.toFixed(1)} Z `;
+      inBreach = false;
+    }
+  }
+  if (inBreach) breachPath += `L${xOf(N - 1).toFixed(1)},${yTarget.toFixed(1)} Z `;
+
+  // Peak-shaved polygon between ghostGrid and grid where ghostGrid > grid
+  let shavedPath = '';
+  if (ghostGrid) {
+    let seg = [];
+    const flush = () => {
+      if (seg.length > 1) {
+        shavedPath += 'M' + seg.map(i => `${xOf(i).toFixed(1)},${yOf(ghostGrid[i]).toFixed(1)}`).join(' L')
+          + ' L' + seg.slice().reverse().map(i => `${xOf(i).toFixed(1)},${yOf(grid[i]).toFixed(1)}`).join(' L') + ' Z ';
+      }
+      seg = [];
+    };
+    for (let i = 0; i < N; i++) {
+      if (ghostGrid[i] > grid[i] + 4) seg.push(i);
+      else flush();
+    }
+    flush();
+  }
+
+  // Optional ±1σ forecast uncertainty band around grid demand
+  let bandPath = '';
+  if (showBands) {
+    const hi = grid.map((v, i) => v + Math.max(8, building[i] * 0.045 + solar[i] * 0.08));
+    const lo = grid.map((v, i) => Math.max(0, v - Math.max(8, building[i] * 0.045 + solar[i] * 0.08)));
+    bandPath = 'M' + hi.map((v, i) => `${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' L')
+      + ' L' + lo.slice().reverse().map((v, ri) => `${xOf(N - 1 - ri).toFixed(1)},${yOf(v).toFixed(1)}`).join(' L') + ' Z';
+  }
+
+  // Gridlines Y
+  const yStep = maxVal <= 350 ? 50 : 100;
+  let yGridSvg = '';
+  for (let yv = 0; yv <= maxVal; yv += yStep) {
+    const yy = yOf(yv).toFixed(1);
+    yGridSvg += `<line x1="${pad.left}" y1="${yy}" x2="${W - pad.right}" y2="${yy}" stroke="#1c3866" stroke-width="1"/>`;
+    yGridSvg += `<text x="${pad.left - 8}" y="${+yy + 3.5}" text-anchor="end" fill="#9bb3d4" font-family="ui-monospace,monospace" font-size="10.5">${yv}</text>`;
+  }
+
+  // Gridlines X (every 2 hours: 06:00, 08:00, ... 20:00)
+  let xGridSvg = '';
+  for (let h = 6; h <= 20; h += 2) {
+    const slot = Math.min(N - 1, (h - 6) * 4);
+    const xx = (h === 20 ? pad.left + pw : xOf(slot)).toFixed(1);
+    xGridSvg += `<line x1="${xx}" y1="${pad.top}" x2="${xx}" y2="${pad.top + ph}" stroke="#1c3866" stroke-width="1"/>`;
+    xGridSvg += `<text x="${xx}" y="${H - 10}" text-anchor="middle" fill="#9bb3d4" font-family="ui-monospace,monospace" font-size="10.5">${String(h).padStart(2, '0')}:00</text>`;
+  }
+
+  // Peak annotation dot with non-overlapping blueprint label box
+  const pIdx = grid.indexOf(Math.max(...grid));
+  const pVal = Math.round(grid[pIdx]);
+  const px = xOf(pIdx);
+  const py = yOf(pVal);
+  const peakColor = pVal > targetPeak ? '#ff5252' : '#00e676';
+  const peakText = `PEAK ${pVal} kW @ ${slotToTime(pIdx)}`;
+  const boxW = peakText.length * 6.8 + 14;
+  const nearTarget = Math.abs(py - yTarget) < 26 && pVal <= targetPeak;
+  const placeLeft = pIdx > N * 0.65;
+  const boxX = Math.max(pad.left + 4, Math.min(W - pad.right - boxW - 4, placeLeft ? px - boxW - 10 : px + 10));
+  const boxY = nearTarget ? Math.min(pad.top + ph - 22, py + 8) : Math.max(pad.top + 3, py - 21);
+
+  const hoverSvg = interactive ? `
+    <g id="mainHoverGroup" style="display:none;pointer-events:none;">
+      <line id="hvLine" x1="0" y1="${pad.top}" x2="0" y2="${pad.top + ph}" stroke="#e8f0fa" stroke-width="1" stroke-dasharray="3,3"/>
+      <circle id="hvGrid" r="4.5" fill="#ff5252" stroke="#07172e" stroke-width="1.5"/>
+      <circle id="hvEv" r="4" fill="#00e676" stroke="#07172e" stroke-width="1.5"/>
+      <circle id="hvBld" r="3.5" fill="#7fb3ff" stroke="#07172e" stroke-width="1.5"/>
+      <circle id="hvSol" r="3.5" fill="#ffab00" stroke="#07172e" stroke-width="1.5"/>
+    </g>
+    <rect id="mainHitRect" x="${pad.left}" y="${pad.top}" width="${pw}" height="${ph}" fill="transparent" style="cursor:crosshair;"/>
+  ` : '';
+
+  const svg = `
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Workplace electricity load forecast chart">
+      <defs>
+        <pattern id="hatchGreen_${containerId}" width="6" height="6" patternTransform="rotate(45 0 0)" patternUnits="userSpaceOnUse">
+          <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(0,230,118,0.45)" stroke-width="1.5"/>
+        </pattern>
+        <pattern id="hatchRed_${containerId}" width="6" height="6" patternTransform="rotate(-45 0 0)" patternUnits="userSpaceOnUse">
+          <line x1="0" y1="0" x2="0" y2="6" stroke="rgba(255,82,82,0.55)" stroke-width="1.5"/>
+        </pattern>
+      </defs>
+      ${yGridSvg}
+      ${xGridSvg}
+      <text x="12" y="${pad.top + 8}" fill="#6f8bb3" font-family="ui-monospace,monospace" font-size="9.5">kW</text>
+
+      ${bandPath ? `<path d="${bandPath}" fill="rgba(232,240,250,0.09)" stroke="none"/>` : ''}
+      ${shavedPath ? `<path d="${shavedPath}" fill="url(#hatchGreen_${containerId})" stroke="none"/>` : ''}
+      ${breachPath ? `<path d="${breachPath}" fill="url(#hatchRed_${containerId})" stroke="none"/>` : ''}
+
+      <!-- Solar Canopy Area -->
+      <path d="${areaOf(solar)}" fill="rgba(255,171,0,0.14)"/>
+      <path d="${pathOf(solar)}" fill="none" stroke="#ffab00" stroke-width="1.8"/>
+
+      <!-- EV Charging Course Overlay -->
+      <path d="${areaOf(ev)}" fill="rgba(0,230,118,0.14)"/>
+      <path d="${pathOf(ev)}" fill="none" stroke="#00e676" stroke-width="2"/>
+
+      <!-- Building Base Terrain -->
+      <path d="${pathOf(building)}" fill="none" stroke="#7fb3ff" stroke-width="1.8"/>
+
+      <!-- Ghost Baseline Grid Curve (Compare Mode) -->
+      ${ghostGrid ? `<path d="${pathOf(ghostGrid)}" fill="none" stroke="#ff5252" stroke-width="1.5" stroke-dasharray="5,4" opacity="0.65"/>` : ''}
+
+      <!-- Total Grid Demand -->
+      <path d="${pathOf(grid)}" fill="none" stroke="#ff5252" stroke-width="2.6"/>
+
+      <!-- Target Peak Cap Reference Line -->
+      <line x1="${pad.left}" y1="${yTarget.toFixed(1)}" x2="${W - pad.right}" y2="${yTarget.toFixed(1)}" stroke="#e8f0fa" stroke-width="1.4" stroke-dasharray="7,4"/>
+      <rect x="${W - pad.right - 122}" y="${(yTarget - 17).toFixed(1)}" width="122" height="15" fill="#07172e" stroke="#4a6fa8" stroke-width="1"/>
+      <text x="${W - pad.right - 61}" y="${(yTarget - 6).toFixed(1)}" text-anchor="middle" fill="#e8f0fa" font-family="ui-monospace,monospace" font-size="9.5" font-weight="700">TARGET ${targetPeak} kW</text>
+
+      <!-- Peak Callout Marker -->
+      <circle cx="${px.toFixed(1)}" cy="${py.toFixed(1)}" r="4.5" fill="${peakColor}" stroke="#07172e" stroke-width="1.5"/>
+      <rect x="${boxX.toFixed(1)}" y="${boxY.toFixed(1)}" width="${boxW.toFixed(1)}" height="18" fill="#07172e" stroke="${peakColor}" stroke-width="1"/>
+      <text x="${(boxX + boxW / 2).toFixed(1)}" y="${(boxY + 12.5).toFixed(1)}" text-anchor="middle" fill="${peakColor}" font-family="ui-monospace,monospace" font-size="10.5" font-weight="700">${peakText}</text>
+
+      <!-- Axes Frame -->
+      <line x1="${pad.left}" y1="${pad.top}" x2="${pad.left}" y2="${pad.top + ph}" stroke="#4a6fa8" stroke-width="1.2"/>
+      <line x1="${pad.left}" y1="${pad.top + ph}" x2="${W - pad.right}" y2="${pad.top + ph}" stroke="#4a6fa8" stroke-width="1.2"/>
+      ${hoverSvg}
+    </svg>
+  `;
+
+  const el = document.getElementById(containerId);
+  el.innerHTML = svg;
+
+  if (interactive) {
+    const hit = el.querySelector('#mainHitRect');
+    const grp = el.querySelector('#mainHoverGroup');
+    const svgNode = el.querySelector('svg');
+    const moveHandler = (clientX) => {
+      const rect = svgNode.getBoundingClientRect();
+      const svgX = ((clientX - rect.left) / rect.width) * W;
+      const frac = Math.max(0, Math.min(1, (svgX - pad.left) / pw));
+      const idx = Math.round(frac * (N - 1));
+      state.hoverSlot = idx;
+      const cx = xOf(idx).toFixed(1);
+      grp.style.display = 'block';
+      grp.querySelector('#hvLine').setAttribute('x1', cx);
+      grp.querySelector('#hvLine').setAttribute('x2', cx);
+      grp.querySelector('#hvGrid').setAttribute('cx', cx);
+      grp.querySelector('#hvGrid').setAttribute('cy', yOf(grid[idx]).toFixed(1));
+      grp.querySelector('#hvEv').setAttribute('cx', cx);
+      grp.querySelector('#hvEv').setAttribute('cy', yOf(ev[idx]).toFixed(1));
+      grp.querySelector('#hvBld').setAttribute('cx', cx);
+      grp.querySelector('#hvBld').setAttribute('cy', yOf(building[idx]).toFixed(1));
+      grp.querySelector('#hvSol').setAttribute('cx', cx);
+      grp.querySelector('#hvSol').setAttribute('cy', yOf(solar[idx]).toFixed(1));
+      updateTelemetryReadout(lastSim, idx);
+    };
+    hit.addEventListener('mousemove', e => moveHandler(e.clientX));
+    hit.addEventListener('touchmove', e => { if (e.touches[0]) moveHandler(e.touches[0].clientX); }, { passive: true });
+    hit.addEventListener('mouseleave', () => {
+      state.hoverSlot = null;
+      grp.style.display = 'none';
+      updateTelemetryReadout(lastSim, null);
+    });
+  }
+}
+
+function buildUtilSVG(sim) {
+  const W = 380, H = 185;
+  const pad = { top: 14, right: 12, bottom: 24, left: 36 };
+  const pw = W - pad.left - pad.right;
+  const ph = H - pad.top - pad.bottom;
+  const xOf = i => pad.left + (i / (N - 1)) * pw;
+  const yOf = pct => pad.top + ph - (pct / 100) * ph;
+
+  const util = sim.activeChargers.map(c => Math.round((c / TOTAL_CHARGERS) * 100));
+  const path = util.map((v, i) => `${i === 0 ? 'M' : 'L'}${xOf(i).toFixed(1)},${yOf(v).toFixed(1)}`).join(' ');
+  const area = `${path} L${xOf(N - 1).toFixed(1)},${yOf(0).toFixed(1)} L${xOf(0).toFixed(1)},${yOf(0).toFixed(1)} Z`;
+
+  // Solar normalized overlay to visually compare charger timing with sun
+  const maxSol = Math.max(1, ...sim.solar);
+  const solPath = sim.solar.map((v, i) => `${i === 0 ? 'M' : 'L'}${xOf(i).toFixed(1)},${yOf((v / maxSol) * 85).toFixed(1)}`).join(' ');
+
+  let grid = '';
+  for (const pct of [0, 50, 100]) {
+    const yy = yOf(pct).toFixed(1);
+    grid += `<line x1="${pad.left}" y1="${yy}" x2="${W - pad.right}" y2="${yy}" stroke="#1c3866" stroke-width="1"/>`;
+    grid += `<text x="${pad.left - 6}" y="${+yy + 3}" text-anchor="end" fill="#9bb3d4" font-family="ui-monospace,monospace" font-size="9">${pct}%</text>`;
+  }
+  for (const h of [6, 10, 14, 18]) {
+    const xx = xOf((h - 6) * 4).toFixed(1);
+    grid += `<text x="${xx}" y="${H - 7}" text-anchor="middle" fill="#9bb3d4" font-family="ui-monospace,monospace" font-size="9">${String(h).padStart(2, '0')}:00</text>`;
+  }
+
+  document.getElementById('miniUtilWrap').innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Charger utilization versus solar curve">
+      ${grid}
+      <line x1="${pad.left}" y1="${yOf(80).toFixed(1)}" x2="${W - pad.right}" y2="${yOf(80).toFixed(1)}" stroke="#4a6fa8" stroke-dasharray="4,3" stroke-width="1"/>
+      <path d="${solPath}" fill="none" stroke="#ffab00" stroke-width="1.3" stroke-dasharray="3,2"/>
+      <path d="${area}" fill="${state.optimized ? 'rgba(0,230,118,0.18)' : 'rgba(255,82,82,0.18)'}"/>
+      <path d="${path}" fill="none" stroke="${state.optimized ? '#00e676' : '#ff5252'}" stroke-width="2"/>
+      <text x="${W - pad.right - 4}" y="${pad.top + 10}" text-anchor="end" fill="#ffab00" font-family="ui-monospace,monospace" font-size="9">--- SOLAR SHAPE</text>
+    </svg>`;
+  const maxActive = Math.max(...sim.activeChargers);
+  const avgAvail = Math.round(((TOTAL_CHARGERS - (sim.activeChargers.reduce((a, b) => a + b, 0) / N)) / TOTAL_CHARGERS) * 100);
+  document.getElementById('utilSubtitle').textContent = `PEAK ${maxActive}/${TOTAL_CHARGERS} BAYS (${Math.round(maxActive / TOTAL_CHARGERS * 100)}%)`;
+  document.getElementById('utilSpecs').innerHTML = `
+    <div class="spec-row"><span class="k">Solar Canopy Direct-to-EV</span><span class="v" style="color:var(--solar)">${sim.activeEcon.solarSelfPct}% (${sim.activeEcon.solarDirectKwh}/${SCENARIOS[state.scenario].solarKwh} kWh)</span></div>
+    <div class="spec-row"><span class="k">Avg Bay Availability</span><span class="v">${avgAvail}% free across 06:00–20:00</span></div>
+  `;
+}
+
+// ── 30-DAY SIMULATED SITE PILOT DATA (DETERMINISTIC) ──
+function generate30DayPilot() {
+  const days = [];
+  const types = [
+    'Sunny', 'Sunny', 'Cloudy', 'Cold Snap', 'Sunny', 'Busy Tue', 'Sunny',
+    'Cloudy', 'Sunny', 'HVAC Spike', 'Sunny', 'Sunny', 'Cloudy', 'Cold Snap',
+    'Sunny', 'Busy Tue', 'Sunny', 'Sunny', 'Cloudy', 'Sunny', 'Cold Snap',
+    'Sunny', 'HVAC Spike', 'Sunny', 'Cloudy', 'Busy Tue', 'Sunny', 'Sunny',
+    'Cloudy', 'Sunny'
+  ];
+  for (let d = 0; d < 30; d++) {
+    const t = types[d];
+    const jitter = ((d * 17 + 5) % 13) - 6; // deterministic -6..+6 kW
+    let basePeak = 412 + jitter;
+    let aiPeak = 342 + Math.round(jitter * 0.5);
+    let solarKwh = 186 + jitter * 3;
+    if (t === 'Cloudy') { basePeak = 434 + jitter; aiPeak = 346 + Math.round(jitter * 0.4); solarKwh = 58 + (d % 4) * 6; }
+    if (t === 'Cold Snap') { basePeak = 458 + jitter; aiPeak = 348 + Math.round(jitter * 0.3); solarKwh = 128 + (d % 5) * 4; }
+    if (t === 'Busy Tue') { basePeak = 448 + jitter; aiPeak = 347 + Math.round(jitter * 0.4); solarKwh = 178; }
+    if (t === 'HVAC Spike') { basePeak = 426 + jitter; aiPeak = 349; solarKwh = 180; }
+    const cap = state.maxDemand;
+    const savedKw = Math.max(0, basePeak - aiPeak);
+    const savedEur = Math.round(Math.max(0, basePeak - cap) * 1.18 + savedKw * 0.28 + 14);
+    days.push({
+      day: d + 1,
+      label: 'D' + String(d + 1).padStart(2, '0'),
+      type: t,
+      basePeak,
+      aiPeak: Math.min(aiPeak, cap - 1 + (cap < 330 ? (330 - cap) : 0)),
+      solarKwh,
+      savedKw,
+      savedEur
+    });
+  }
+  return days;
+}
+
+function renderPilotChart() {
+  const days = generate30DayPilot();
+  const W = 960, H = 250;
+  const pad = { top: 20, right: 20, bottom: 30, left: 48 };
+  const pw = W - pad.left - pad.right;
+  const ph = H - pad.top - pad.bottom;
+  const maxY = 500;
+  const yOf = v => pad.top + ph - (v / maxY) * ph;
+  const barW = pw / 30;
+  const cap = state.maxDemand;
+  const yCap = yOf(cap);
+
+  let yGrid = '';
+  for (let yv = 0; yv <= maxY; yv += 100) {
+    const yy = yOf(yv).toFixed(1);
+    yGrid += `<line x1="${pad.left}" y1="${yy}" x2="${W - pad.right}" y2="${yy}" stroke="#1c3866" stroke-width="1"/>`;
+    yGrid += `<text x="${pad.left - 8}" y="${+yy + 3.5}" text-anchor="end" fill="#9bb3d4" font-family="ui-monospace,monospace" font-size="10">${yv}</text>`;
+  }
+
+  let bars = '';
+  let aiPts = [];
+  days.forEach((d, idx) => {
+    const x = pad.left + idx * barW;
+    const bx = x + 3;
+    const bw = Math.max(4, barW - 6);
+    const by = yOf(d.basePeak);
+    const bh = yOf(0) - by;
+    const cx = x + barW / 2;
+    const ay = yOf(d.aiPeak);
+    aiPts.push(`${cx.toFixed(1)},${ay.toFixed(1)}`);
+
+    bars += `
+      <rect class="pilot-bar" data-idx="${idx}" x="${bx.toFixed(1)}" y="${by.toFixed(1)}" width="${bw.toFixed(1)}" height="${bh.toFixed(1)}" fill="${d.basePeak > cap ? 'rgba(255,82,82,0.42)' : 'rgba(127,179,255,0.35)'}" stroke="${d.basePeak > cap ? '#ff5252' : '#7fb3ff'}" stroke-width="1"/>
+      <circle cx="${cx.toFixed(1)}" cy="${ay.toFixed(1)}" r="3.2" fill="#00e676" stroke="#07172e" stroke-width="1"/>
+      <rect class="pilot-hit" data-idx="${idx}" x="${x.toFixed(1)}" y="${pad.top}" width="${barW.toFixed(1)}" height="${ph}" fill="transparent" style="cursor:pointer;"/>
+    `;
+    if (idx % 5 === 0 || idx === 29) {
+      bars += `<text x="${cx.toFixed(1)}" y="${H - 10}" text-anchor="middle" fill="#9bb3d4" font-family="ui-monospace,monospace" font-size="10">${d.label}</text>`;
+    }
+  });
+
+  const totEur = days.reduce((a, d) => a + d.savedEur, 0);
+  const breachesBefore = days.filter(d => d.basePeak > cap).length;
+  const breachesAfter = days.filter(d => d.aiPeak > cap).length;
+  document.getElementById('pilotTotalsTag').textContent = `30-DAY SIMULATED SAVING: €${totEur.toLocaleString()} · PEAK BREACHES: ${breachesBefore} → ${breachesAfter}`;
+
+  const wrap = document.getElementById('pilotChartWrap');
+  wrap.innerHTML = `
+    <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="30-day pilot comparison chart">
+      ${yGrid}
+      ${bars}
+      <polyline points="${aiPts.join(' ')}" fill="none" stroke="#00e676" stroke-width="2.2" pointer-events="none"/>
+      <line x1="${pad.left}" y1="${yCap.toFixed(1)}" x2="${W - pad.right}" y2="${yCap.toFixed(1)}" stroke="#e8f0fa" stroke-width="1.4" stroke-dasharray="7,4"/>
+      <rect x="${W - pad.right - 150}" y="${(yCap - 16).toFixed(1)}" width="150" height="14" fill="#07172e" stroke="#4a6fa8"/>
+      <text x="${W - pad.right - 75}" y="${(yCap - 6).toFixed(1)}" text-anchor="middle" fill="#e8f0fa" font-family="ui-monospace,monospace" font-size="9.5" font-weight="700">CONTRACT CAP ${cap} kW</text>
+      <text x="${pad.left + 8}" y="${pad.top + 12}" fill="#ff5252" font-family="ui-monospace,monospace" font-size="10">■ CONTROL SITE B (NO AI)</text>
+      <text x="${pad.left + 195}" y="${pad.top + 12}" fill="#00e676" font-family="ui-monospace,monospace" font-size="10">● PILOT SITE A (SMARTCHARGE AI)</text>
+    </svg>`;
+
+  wrap.querySelectorAll('.pilot-hit').forEach(el => {
+    el.addEventListener('mouseenter', () => {
+      const d = days[+el.dataset.idx];
+      document.getElementById('pilotTelemetry').innerHTML =
+        `<span><strong>${d.label}</strong> (${d.type})</span>` +
+        `<span>Control Site Peak: <strong style="color:var(--grid)">${d.basePeak} kW</strong></span>` +
+        `<span>SmartCharge AI Peak: <strong style="color:var(--accent)">${d.aiPeak} kW</strong></span>` +
+        `<span>Shaved: <strong>-${d.savedKw} kW</strong></span>` +
+        `<span>Day Saving: <strong style="color:var(--accent)">€${d.savedEur} (SIMULATED)</strong></span>`;
+    });
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// UI RENDERING
+// ═══════════════════════════════════════════════════════════════════════════
+
+function updateTelemetryReadout(sim, idx) {
+  const slot = idx !== null ? idx : sim.peakSlotActive;
+  const tStr = slotToTime(slot);
+  const b = sim.building[slot];
+  const e = Math.round(sim.activeEv[slot]);
+  const s = Math.round(sim.solar[slot]);
+  const g = Math.round(sim.activeGrid[slot]);
+  const head = state.maxDemand - g;
+  const tag = idx !== null ? `CURSOR ${tStr}` : `PEAK SLOT ${tStr}`;
+
+  document.getElementById('mainTelemetry').innerHTML = `
+    <span style="color:var(--accent)"><strong>${tag}</strong></span>
+    <span>BLDG <strong style="color:var(--building)">${b} kW</strong></span>
+    <span>EV <strong style="color:var(--accent)">${e} kW</strong></span>
+    <span>SOLAR <strong style="color:var(--solar)">${s} kW</strong></span>
+    <span>GRID <strong style="color:var(--grid)">${g} kW</strong></span>
+    <span>CAP <strong style="color:${head >= 0 ? 'var(--accent)' : 'var(--grid)'}">${head >= 0 ? '+' + head + ' kW OK' : head + ' kW BREACH'}</strong></span>
+  `;
+
+  document.getElementById('guideWords').textContent =
+    `GUIDE WORDS · 06:00 — 20:00 · ${SCENARIOS[state.scenario].short} · ACTIVE PEAK ${sim.activeEcon.peak} kW @ ${slotToTime(sim.peakSlotActive)} · ${tag}: ${g} kW GRID`;
+}
+
+function renderHeaderAndKPIs(sim) {
+  const stamp = document.getElementById('headerStamp');
+  const statusMap = {
+    BASELINE: ['BASELINE · UNCOORDINATED', 'baseline'],
+    PENDING:  ['OPTIMIZED · AWAITING APPROVAL', 'pending'],
+    APPROVED: ['APPROVED · SIGNED BY MANAGER', 'approved'],
+    MODIFIED: ['MODIFIED · MANAGER OVERRIDE', 'modified'],
+    REJECTED: ['REJECTED · REVERTED TO BASELINE', 'baseline'],
+    FAILSAFE: ['EDGE FAIL-SAFE · LOCAL 3.7 kW CAP', 'failsafe']
+  };
+  const [stText, stCls] = statusMap[state.planStatus] || statusMap.BASELINE;
+  stamp.textContent = stText;
+  stamp.className = 'stamp ' + stCls;
+  document.getElementById('specHash').textContent = state.planHash;
+  document.getElementById('specFleet').textContent = `${sim.fleet.length} EVs · ${TOTAL_CHARGERS} Chargers (${Math.round(sim.fleet.length / TOTAL_CHARGERS * 100)}%)`;
+
+  const peak = sim.activeEcon.peak;
+  const overCap = peak > state.maxDemand;
+  const headroom = state.maxDemand - peak;
+  const readyPct = Math.round((sim.activeReady / sim.fleet.length) * 100);
+  const solKwh = SCENARIOS[state.scenario].solarKwh;
+  const dailySave = state.optimized ? sim.totalDailySavingEur : 0;
+
+  const kpis = [
+    {
+      label: 'Predicted Peak',
+      value: `${peak} kW`,
+      valCls: overCap ? 'bad' : 'ok',
+      delta: state.optimized ? `${sim.peakReductionPct}%` : (overCap ? `+${peak - state.maxDemand} kW` : 'OK'),
+      deltaCls: overCap ? 'bad' : 'ok',
+      hint: state.optimized ? `vs ${sim.econBefore.peak} kW baseline` : `At ${slotToTime(sim.peakSlotBefore)} (uncoordinated)`
+    },
+    {
+      label: 'Target Peak',
+      value: `${state.maxDemand} kW`,
+      valCls: '',
+      delta: headroom >= 0 ? `+${headroom} kW` : `${headroom} kW`,
+      deltaCls: headroom >= 0 ? 'ok' : 'bad',
+      hint: headroom >= 0 ? 'Contracted grid headroom' : 'Exceeds site contract cap'
+    },
+    {
+      label: 'EVs Connected',
+      value: `${sim.fleet.length}`,
+      valCls: '',
+      delta: state.scenario === 'occ80' ? '80% OCC' : `${Math.round(sim.fleet.length / TOTAL_CHARGERS * 100)}% BAYS`,
+      deltaCls: state.scenario === 'occ80' ? 'warn' : 'ok',
+      hint: `12 rep. shown · ${sim.activeEcon.totalEvKwh} kWh req`
+    },
+    {
+      label: 'Solar Available',
+      value: `${solKwh} kWh`,
+      valCls: state.scenario === 'cloudy' ? 'warn' : '',
+      delta: `${sim.activeEcon.solarSelfPct}% EV USE`,
+      deltaCls: sim.activeEcon.solarSelfPct >= 75 ? 'ok' : 'warn',
+      hint: state.optimized ? `${sim.solarLiftPp >= 0 ? '+' : ''}${sim.solarLiftPp}pp vs baseline` : 'Carport PV canopy forecast'
+    },
+    {
+      label: 'Vehicles Ready',
+      value: `${readyPct}%`,
+      valCls: readyPct === 100 ? 'ok' : 'bad',
+      delta: `${sim.activeReady}/${sim.fleet.length}`,
+      deltaCls: readyPct === 100 ? 'ok' : 'bad',
+      hint: 'Target charge by departure'
+    },
+    {
+      label: 'Est. Daily Saving',
+      value: `€${dailySave}`,
+      valCls: dailySave > 0 ? 'ok' : '',
+      delta: 'SIMULATED',
+      deltaCls: dailySave > 0 ? 'ok' : 'warn',
+      hint: dailySave > 0 ? `€${sim.peakSavingEur} peak + €${sim.energySavingEur} kWh` : 'Run optimizer to simulate'
+    }
+  ];
+
+  document.getElementById('kpiStrip').innerHTML = kpis.map(k => `
+    <div class="kpi">
+      <div class="label">${k.label}</div>
+      <div class="val-row">
+        <span class="value ${k.valCls}">${k.value}</span>
+        <span class="delta ${k.deltaCls}">${k.delta}</span>
+      </div>
+      <div class="hint">${k.hint}</div>
+    </div>
+  `).join('');
+
+  // Status / Recommendation / Feasibility Banner
+  const banner = document.getElementById('statusBanner');
+  if (state.failSafe) {
+    banner.className = 'alert-strip warn';
+    banner.innerHTML = `<span><strong>EDGE FAIL-SAFE ACTIVE:</strong> Cloud connectivity simulated offline. Local charger controller enforcing safe 3.7 kW limit (Peak ${sim.activeEcon.peak} kW, Ready ${readyPct}%).</span><button class="btn sm secondary" onclick="toggleFailSafe()">Restore Cloud AI</button>`;
+  } else if (state.optimized && !sim.feasible) {
+    banner.className = 'alert-strip danger';
+    const reasons = [];
+    if (sim.capBreachAfter) reasons.push(`Peak ${sim.econAfter.peak} kW exceeds tight ${state.maxDemand} kW cap`);
+    if (sim.socShortfallAfter) reasons.push(`${sim.fleet.length - sim.readyAfter} EV(s) below ${state.minCharge}% min SoC`);
+    banner.innerHTML = `<span><strong>FEASIBILITY ALERT (HUMAN INTERVENTION REQUIRED):</strong> ${reasons.join(' · ')}. Raise site cap or relax minimum charge in Manager Control.</span><button class="btn sm secondary" onclick="switchView('manager')">Adjust Constraints</button>`;
+  } else if (state.optimized) {
+    banner.className = 'alert-strip ok';
+    const recLine = buildRecommendationLine(sim);
+    const rightAction = state.planStatus === 'APPROVED'
+      ? `<span class="stamp approved">SIGNED &amp; DISPATCH READY</span>`
+      : `<button class="btn sm accent" onclick="approvePlan()">Approve Plan</button>`;
+    banner.innerHTML = `<span style="flex:1;min-width:240px;"><strong>AI RECOMMENDATION:</strong> ${recLine}</span><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;">${rightAction}</div>`;
+  } else {
+    banner.className = 'alert-strip warn';
+    banner.innerHTML = `<span style="flex:1;min-width:240px;"><strong>SCENARIO · ${SCENARIOS[state.scenario].short}:</strong> ${SCENARIOS[state.scenario].desc}</span><span class="tag warn">UNOPTIMIZED BASELINE</span>`;
+  }
+
+  // Command bar buttons
+  document.getElementById('topOptBtn').textContent = state.optimized ? 'Re-Optimize Tomorrow' : 'Optimize Tomorrow';
+  document.getElementById('topResetBtn').style.display = state.optimized ? 'inline-block' : 'none';
+}
+
+function buildRecommendationLine(sim) {
+  if (state.scenario === 'sunny' && state.maxDemand === 350 && state.minCharge === 80 && state.urgentIds.size === 0) {
+    return `AI recommends shifting ${sim.shiftedPct}% of EV charging away from the 09:00 peak into midday solar hours — cutting grid peak from ${sim.econBefore.peak} kW to ${sim.econAfter.peak} kW (${sim.peakReductionPct}%).`;
+  }
+  if (state.scenario === 'cloudy') {
+    return `Low solar forecast (${SCENARIOS.cloudy.solarKwh} kWh): AI shifts ${sim.shiftedPct}% of morning EV load across off-peak grid valleys to hold peak at ${sim.econAfter.peak} kW (${sim.peakReductionPct}%).`;
+  }
+  if (state.scenario === 'cold') {
+    return `Cold morning HVAC spike detected: AI defers ${sim.shiftedPct}% of morning EV charging past 10:30 heating ramp, cutting peak from ${sim.econBefore.peak} kW to ${sim.econAfter.peak} kW (${sim.peakReductionPct}%).`;
+  }
+  if (state.scenario === 'unexpected') {
+    return `Midday +92 kW building spike detected (11:30–13:45): AI shifts ${sim.shiftedPct}% off 09:00 AND curtails noon EV load across clean shoulders to avoid rebound peaks (${sim.econAfter.peak} kW).`;
+  }
+  if (state.urgentIds.size > 0) {
+    const ids = Array.from(state.urgentIds).join(', ');
+    return `Urgent Trip active (${ids}): immediate 11 kW priority allocated while ${sim.shiftedPct}% of remaining morning load shifts to hold site peak at ${sim.econAfter.peak} kW.`;
+  }
+  return `AI recommends shifting ${sim.shiftedPct}% of EV charging away from the 09:00 peak, reducing site peak from ${sim.econBefore.peak} kW to ${sim.econAfter.peak} kW (${sim.peakReductionPct}%).`;
+}
+
+function renderOverview(sim) {
+  document.getElementById('chartScenarioTag').textContent = `SCENARIO: ${SCENARIOS[state.scenario].short} · ${state.optimized ? 'OPTIMIZED PLAN' : 'BASELINE UNCOORDINATED'}`;
+
+  const compareOn = document.getElementById('chkCompare').checked && state.optimized;
+  const bandsOn = document.getElementById('chkBands').checked;
+
+  buildForecastSVG('mainChartWrap', {
+    building: sim.building,
+    ev: sim.activeEv,
+    solar: sim.solar,
+    grid: sim.activeGrid,
+    targetPeak: state.maxDemand,
+    ghostGrid: compareOn ? sim.gridBefore : null,
+    showBands: bandsOn,
+    height: 315,
+    interactive: true
+  });
+  updateTelemetryReadout(sim, state.hoverSlot);
+
+  // Quick recommendation + site capacity specs
+  document.getElementById('quickRecText').innerHTML = state.optimized
+    ? `<strong style="color:var(--accent)">Plan ready for Manager sign-off:</strong> ${buildRecommendationLine(sim)}`
+    : `<strong style="color:var(--solar)">Action needed:</strong> Morning EV plug-ins push site grid load to <strong>${sim.econBefore.peak} kW</strong> (+${Math.max(0, sim.econBefore.peak - state.maxDemand)} kW over contract). Run optimizer to simulate constrained scheduling.`;
+
+  const maxB = Math.max(...sim.building);
+  const maxE = Math.round(Math.max(...sim.activeEv));
+  const maxS = Math.round(Math.max(...sim.solar));
+  const head = state.maxDemand - sim.activeEcon.peak;
+  document.getElementById('capSpecs').innerHTML = `
+    <div class="spec-row"><span class="k">Building Peak</span><span class="v" style="color:var(--building)">${maxB} kW</span></div>
+    <div class="spec-row"><span class="k">EV Fleet Peak</span><span class="v" style="color:var(--accent)">${maxE} kW</span></div>
+    <div class="spec-row"><span class="k">Solar Canopy Peak</span><span class="v" style="color:var(--solar)">${maxS} kW (${SCENARIOS[state.scenario].solarKwh} kWh)</span></div>
+    <div class="spec-row"><span class="k">Grid Peak / Cap</span><span class="v" style="color:${head >= 0 ? 'var(--accent)' : 'var(--grid)'}">${sim.activeEcon.peak} / ${state.maxDemand} kW</span></div>
+    <div class="spec-row"><span class="k">Feasibility Check</span><span class="v" style="color:${(!state.optimized || sim.feasible) ? 'var(--accent)' : 'var(--grid)'}">${!state.optimized ? 'UNOPTIMIZED' : (sim.feasible ? 'PASS · 100% READY' : 'CONSTRAINT BREACH')}</span></div>
+  `;
+
+  buildUtilSVG(sim);
+  renderExplainability(sim);
+  renderEVTable(sim);
+}
+
+function renderExplainability(sim) {
+  const sel = document.getElementById('explainSelect');
+  const visibleFleet = sim.fleet.filter(v => state.showAllEVs || v.rep);
+  if (sel.options.length !== visibleFleet.length) {
+    sel.innerHTML = visibleFleet.map(v => `<option value="${v.id}">${v.id} (${v.charger} · ${v.prio})</option>`).join('');
+  }
+  if (!visibleFleet.some(v => v.id === state.selectedVehicleId)) {
+    state.selectedVehicleId = visibleFleet[0].id;
+  }
+  sel.value = state.selectedVehicleId;
+
+  const ex = explainVehicle(sim, state.selectedVehicleId);
+  document.getElementById('explainPanel').innerHTML = `
+    <p class="explain-quote"><strong>${ex.v.id} (${ex.v.charger}):</strong> "${ex.quote}"</p>
+    <div class="explain-factors">
+      <div class="factor-cell"><div class="fl">Planned Window</div><div class="fv" style="color:var(--accent)">${ex.win}</div></div>
+      <div class="factor-cell"><div class="fl">Charge Progress</div><div class="fv">${ex.v.soc}% → ${ex.sch.finalSoc}% (${ex.sch.delivered} kWh)</div></div>
+      <div class="factor-cell"><div class="fl">Solar-Hour Alignment</div><div class="fv" style="color:var(--solar)">${ex.solarShare}% · Dep ${ex.v.dep}</div></div>
+      <div class="factor-cell"><div class="fl">Privacy / Policy</div><div class="fv" style="color:var(--building)">${ex.v.prio} · No PII/HR</div></div>
+    </div>
+  `;
+}
+
+function renderEVTable(sim) {
+  const rows = sim.fleet.filter(v => state.showAllEVs || v.rep);
+  document.getElementById('evTableHeading').textContent = state.showAllEVs
+    ? `EV Charging Sessions · All ${sim.fleet.length} Connected Site EVs`
+    : `EV Charging Sessions · 12 Representative (of ${sim.fleet.length} Connected Site EVs)`;
+  document.getElementById('toggleFleetBtn').textContent = state.showAllEVs ? 'Show 12 Representative' : `Show All ${sim.fleet.length} EVs`;
+
+  let html = `<thead><tr>
+    <th>Vehicle ID</th>
+    <th>Arrival</th>
+    <th>Departure</th>
+    <th>Energy</th>
+    <th>Charge %</th>
+    <th>Priority</th>
+    <th>Planned Window</th>
+    <th class="gantt-cell">06:00 — Timeline — 20:00</th>
+    <th>Status</th>
+    <th>Actions</th>
+  </tr></thead><tbody>`;
+
+  for (const v of rows) {
+    const sch = sim.activeSchedules[v.id];
+    const isSel = v.id === state.selectedVehicleId;
+    const dwellLeft = (v.a / N) * 100;
+    const dwellW = ((v.d - v.a) / N) * 100;
+    const chargeBars = sch.summary.blocks.map(([a, b]) => {
+      const l = (a / N) * 100;
+      const w = Math.max(2, ((b - a) / N) * 100);
+      const cls = v.isUrgent ? 'urgent' : (state.optimized ? '' : 'baseline');
+      return `<div class="gantt-charge ${cls}" style="left:${l.toFixed(1)}%;width:${w.toFixed(1)}%"></div>`;
+    }).join('');
+
+    let statusTag = '';
+    if (!sch.ready) statusTag = '<span class="tag danger">Shortfall</span>';
+    else if (v.isUrgent) statusTag = '<span class="tag warn">Urgent ASAP</span>';
+    else if (state.optimized) statusTag = '<span class="tag ok">Ready On Time</span>';
+    else statusTag = '<span class="tag dim">09:00 Peak</span>';
+
+    const prioCls = v.prio === 'Urgent' ? 'warn' : v.prio === 'High' ? 'info' : 'dim';
+
+    html += `<tr class="${isSel ? 'selected' : ''} ${v.isUrgent ? 'urgent-row' : ''}" onclick="selectExplainVehicle('${v.id}')">
+      <td><strong>${v.id}</strong> <span style="color:var(--ink-muted)">${v.charger}</span></td>
+      <td>${v.arr}</td>
+      <td>${v.dep}</td>
+      <td>${v.needKwh} kWh</td>
+      <td>${v.soc}% → <strong>${sch.finalSoc}%</strong></td>
+      <td><span class="tag ${prioCls}">${v.prio}</span></td>
+      <td style="color:${state.optimized ? 'var(--accent)' : 'var(--ink)'}">${sch.summary.label}</td>
+      <td class="gantt-cell">
+        <div class="gantt-track" title="Dwell ${v.arr}–${v.dep} | Charge ${sch.summary.label}">
+          <div class="gantt-dwell" style="left:${dwellLeft.toFixed(1)}%;width:${dwellW.toFixed(1)}%"></div>
+          ${chargeBars}
+        </div>
+      </td>
+      <td>${statusTag}</td>
+      <td onclick="event.stopPropagation()">
+        <button class="btn sm secondary" onclick="selectExplainVehicle('${v.id}', true)">Why now?</button>
+        <button class="btn sm solar" onclick="quickUrgent('${v.id}')">${v.isUrgent ? 'Clear' : 'Urgent'}</button>
+      </td>
+    </tr>`;
+  }
+  html += '</tbody>';
+  document.getElementById('evTable').innerHTML = html;
+}
+
+function renderBeforeAfter(sim) {
+  const sharedYMax = Math.max(450, Math.ceil((Math.max(...sim.gridBefore, ...sim.gridAfter, state.maxDemand) + 30) / 50) * 50);
+
+  document.getElementById('optRecBanner').innerHTML = `
+    <div style="font-size:14px;font-weight:700;color:var(--ink);">${buildRecommendationLine(sim)}</div>
+    <div style="font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);margin-top:5px;">
+      Deterministic constrained schedule · Scenario: ${SCENARIOS[state.scenario].label} · Site Cap: ${state.maxDemand} kW · All financial metrics SIMULATED.
+    </div>
+  `;
+
+  const readyPct = Math.round((sim.readyAfter / sim.fleet.length) * 100);
+  document.getElementById('optOutcomeGrid').innerHTML = `
+    <div class="strip-cell">
+      <div class="sv">${sim.peakReductionPct}%</div>
+      <div class="sl">Peak Reduction</div>
+      <div class="sh">${sim.econBefore.peak} kW → ${sim.econAfter.peak} kW</div>
+    </div>
+    <div class="strip-cell">
+      <div class="sv">€${sim.totalDailySavingEur}</div>
+      <div class="sl">Est. Daily Saving (SIMULATED)</div>
+      <div class="sh">€${sim.peakSavingEur} peak + €${sim.energySavingEur} energy</div>
+    </div>
+    <div class="strip-cell">
+      <div class="sv">+${Math.max(0, sim.solarLiftPp)}%</div>
+      <div class="sl">Solar Self-Consumption</div>
+      <div class="sh">${sim.econBefore.solarSelfPct}% → ${sim.econAfter.solarSelfPct}% EV capture</div>
+    </div>
+    <div class="strip-cell">
+      <div class="sv ${readyPct === 100 ? '' : 'warn'}">${readyPct}%</div>
+      <div class="sl">Vehicles Ready On Time</div>
+      <div class="sh">${sim.readyAfter} / ${sim.fleet.length} reach target SoC</div>
+    </div>
+  `;
+
+  document.getElementById('beforePeakTag').textContent = `PEAK ${sim.econBefore.peak} kW · ${sim.econBefore.peak > state.maxDemand ? '+' + (sim.econBefore.peak - state.maxDemand) + ' kW OVER CAP' : 'OK'}`;
+  document.getElementById('afterPeakTag').textContent = `PEAK ${sim.econAfter.peak} kW (${sim.peakReductionPct}%) · ${sim.econAfter.peak <= state.maxDemand ? 'WITHIN CAP' : 'OVER CAP'}`;
+
+  buildForecastSVG('beforeChartWrap', {
+    building: sim.building,
+    ev: sim.evBefore,
+    solar: sim.solar,
+    grid: sim.gridBefore,
+    targetPeak: state.maxDemand,
+    height: 250,
+    yMaxFixed: sharedYMax
+  });
+  buildForecastSVG('afterChartWrap', {
+    building: sim.building,
+    ev: sim.evAfter,
+    solar: sim.solar,
+    grid: sim.gridAfter,
+    targetPeak: state.maxDemand,
+    ghostGrid: sim.gridBefore,
+    height: 250,
+    yMaxFixed: sharedYMax
+  });
+
+  // Value driver breakdown bars
+  const tot = Math.max(1, sim.totalDailySavingEur);
+  const peakPct = Math.round((sim.peakSavingEur / tot) * 100);
+  const enPct = 100 - peakPct;
+  const annPeak = sim.peakSavingEur * 230;
+  const annEn = sim.energySavingEur * 230;
+
+  document.getElementById('valueBreakdown').innerHTML = `
+    <div class="bar-row">
+      <div class="bar-meta"><span>Peak Demand-Charge Reduction (SIMULATED)</span><strong style="color:var(--accent)">€${sim.peakSavingEur}/day · €${annPeak.toLocaleString()}/yr (${peakPct}%)</strong></div>
+      <div class="bar-track"><div class="bar-fill" style="width:${peakPct}%"></div></div>
+    </div>
+    <div class="bar-row">
+      <div class="bar-meta"><span>ToU Tariff + Solar kWh Arbitrage (SIMULATED)</span><strong style="color:var(--building)">€${sim.energySavingEur}/day · €${annEn.toLocaleString()}/yr (${enPct}%)</strong></div>
+      <div class="bar-track"><div class="bar-fill blue" style="width:${Math.max(6, enPct)}%"></div></div>
+    </div>
+    <div class="bar-row" style="margin-bottom:0;">
+      <div class="bar-meta"><span>Avoided Grid Connection Upgrade (One-Time CapEx, SIMULATED)</span><strong style="color:var(--solar)">€55,000 / site avoided</strong></div>
+      <div class="bar-track"><div class="bar-fill amber" style="width:100%"></div></div>
+    </div>
+  `;
+}
+
+function renderManagerView(sim) {
+  document.getElementById('rngMaxDemand').value = state.maxDemand;
+  document.getElementById('lblMaxDemand').textContent = state.maxDemand + ' kW';
+  document.getElementById('rngMinCharge').value = state.minCharge;
+  document.getElementById('lblMinCharge').textContent = state.minCharge + '%';
+  document.getElementById('selPriorityMode').value = state.priorityMode;
+
+  const uSel = document.getElementById('urgentSelect');
+  if (!uSel.options.length) {
+    uSel.innerHTML = BASE_VEHICLES.filter(v => v.rep).map(v => `<option value="${v.id}">${v.id} (${v.charger} · Dep ${v.dep} · ${v.soc}%)</option>`).join('');
+    uSel.value = 'EV-04';
+  }
+  document.getElementById('clearUrgentBtn').style.display = state.urgentIds.size ? 'inline-block' : 'none';
+  document.getElementById('urgentStatusBox').textContent = state.urgentIds.size
+    ? `ACTIVE URGENT TRIP: ${Array.from(state.urgentIds).join(', ')} — boosted to 11 kW immediate charging; fleet rebalanced to ${sim.activeEcon.peak} kW peak.`
+    : 'No urgent business trips active. All vehicles follow standard HR-agreed scheduling rules.';
+
+  const failBtn = document.getElementById('btnFailSafe');
+  failBtn.textContent = state.failSafe ? 'Restore Cloud SmartCharge AI' : 'Simulate Cloud Outage → Edge Fail-Safe';
+
+  // Audit Log
+  const ovRate = Math.round((state.overrideCount / Math.max(1, state.totalDecisions)) * 100);
+  document.getElementById('overrideSummaryTag').textContent = `OVERRIDES: ${state.overrideCount} (${ovRate}% RATE)`;
+  document.getElementById('auditLog').innerHTML = state.auditLog.map(e => `
+    <div class="audit-entry">
+      <span class="ts">${e.ts}</span>
+      <span class="act ${e.cls}">${e.act}</span>
+      <span>${e.msg}</span>
+    </div>
+  `).join('');
+
+  // Modify Panel
+  const mp = document.getElementById('modifyPanel');
+  mp.style.display = state.modifyOpen ? 'block' : 'none';
+  document.getElementById('btnModifyToggle').textContent = state.modifyOpen ? 'Close Editor' : 'Modify Plan';
+  if (state.modifyOpen) {
+    const reps = sim.fleet.filter(v => v.rep);
+    let mHtml = '<thead><tr><th>Vehicle</th><th>Arrival</th><th>Departure Override</th><th>Priority Override</th><th>Lock Morning?</th><th>Current Window</th></tr></thead><tbody>';
+    for (const v of reps) {
+      const sch = sim.activeSchedules[v.id];
+      mHtml += `<tr>
+        <td><strong>${v.id}</strong> (${v.charger})</td>
+        <td>${v.arr}</td>
+        <td>
+          <select data-vid="${v.id}" data-field="dep">
+            ${['14:00','15:00','16:00','16:30','17:00','17:30','18:00','18:30'].map(t => `<option value="${t}" ${v.dep === t ? 'selected' : ''}>${t}</option>`).join('')}
+          </select>
+        </td>
+        <td>
+          <select data-vid="${v.id}" data-field="prio">
+            ${['High','Normal','Low'].map(p => `<option value="${p}" ${v.basePrio === p ? 'selected' : ''}>${p}</option>`).join('')}
+          </select>
+        </td>
+        <td><input type="checkbox" data-vid="${v.id}" data-field="lockMorning" ${v.lockMorning ? 'checked' : ''} style="accent-color:var(--accent)"></td>
+        <td style="color:var(--accent)">${sch.summary.label}</td>
+      </tr>`;
+    }
+    mHtml += '</tbody>';
+    document.getElementById('modifyTable').innerHTML = mHtml;
+  }
+}
+
+function renderMonitorView(sim) {
+  const avoided = Math.max(0, sim.econBefore.peak - sim.activeEcon.peak);
+  const ovRate = Math.round((state.overrideCount / Math.max(1, state.totalDecisions)) * 100);
+  const readyPct = Math.round((sim.activeReady / sim.fleet.length) * 100);
+  const maxActiveBays = Math.max(...sim.activeChargers);
+  const availPct = Math.round(((TOTAL_CHARGERS - (sim.activeChargers.reduce((a, b) => a + b, 0) / N)) / TOTAL_CHARGERS) * 100);
+
+  const metrics = [
+    { v: SCENARIOS[state.scenario].loadMae, l: 'Forecast Error (MAE)', h: 'Rolling 7-day backtest', cls: 'ink' },
+    { v: `${avoided} kW`, l: 'Peak Avoided', h: `${sim.econBefore.peak} → ${sim.activeEcon.peak} kW`, cls: avoided > 0 ? '' : 'warn' },
+    { v: `${ovRate}%`, l: 'Override Rate', h: `${state.overrideCount} overrides (<15% goal)`, cls: ovRate > 20 ? 'warn' : '' },
+    { v: `${readyPct}%`, l: 'Charged by Departure', h: `${sim.activeReady}/${sim.fleet.length} EVs on time`, cls: readyPct === 100 ? '' : 'warn' },
+    { v: `${sim.activeEcon.solarSelfPct}%`, l: 'Solar Self-Consumption', h: `${sim.activeEcon.solarDirectKwh}/${SCENARIOS[state.scenario].solarKwh} kWh`, cls: '' },
+    { v: `${availPct}%`, l: 'Charger Availability', h: `Peak ${maxActiveBays}/${TOTAL_CHARGERS} bays busy`, cls: 'ink' }
+  ];
+
+  document.getElementById('monitorStrip').innerHTML = metrics.map(m => `
+    <div class="strip-cell">
+      <div class="sv ${m.cls}">${m.v}</div>
+      <div class="sl">${m.l}</div>
+      <div class="sh">${m.h}</div>
+    </div>
+  `).join('');
+
+  document.getElementById('monLoadMae').textContent = SCENARIOS[state.scenario].loadMae;
+  document.getElementById('monSolarMae').textContent = SCENARIOS[state.scenario].solarMae;
+  document.getElementById('monFeasRate').textContent = sim.feasible ? '100% PASS' : 'ALERT TRIGGERED';
+  document.getElementById('monFeasRate').style.color = sim.feasible ? 'var(--accent)' : 'var(--grid)';
+  document.getElementById('monFailSafe').textContent = state.failSafe ? 'ENGAGED (LOCAL 3.7 kW)' : 'ARMED (3.7 kW Cap)';
+  document.getElementById('monFailSafe').style.color = state.failSafe ? 'var(--solar)' : 'var(--accent)';
+
+  renderPilotChart();
+  renderScaling();
+}
+
+function renderScaling() {
+  const sites = +document.getElementById('rngSites').value;
+  const mode = document.getElementById('selBuildBuy').value;
+  document.getElementById('lblSites').textContent = `${sites} Site${sites > 1 ? 's' : ''}`;
+
+  // Simulated annual economics per site (230 working days)
+  const annualBenefitPerSite = 17800; // Demand-charge savings (SIMULATED)
+  const avoidedUpgradeCapex = sites * 55000; // Avoided transformer/grid connection upgrades (SIMULATED)
+  const totalAnnualBenefit = sites * annualBenefitPerSite;
+
+  // Build vs Buy vs Assemble TCO including S8 "What if it succeeds?" recurring operating costs
+  const costProfile = {
+    assemble: { setup: 32000 + sites * 8500, annualOps: 9500 + sites * 3800, label: 'Assemble (OCPP BMS + Custom Opt.)' },
+    buy:      { setup: 14000 + sites * 4500, annualOps: 6000 + sites * 7600, label: 'Buy (Turnkey Vendor SaaS)' },
+    build:    { setup: 95000 + sites * 12000, annualOps: 28000 + sites * 4900, label: 'Build In-House (Full Custom Stack)' }
+  }[mode];
+
+  const netYr1 = totalAnnualBenefit - costProfile.annualOps;
+  const paybackMonths = netYr1 > 0 ? Math.max(2, Math.round((costProfile.setup / netYr1) * 12)) : 99;
+  const paybackWithCapex = Math.max(1, Math.round((costProfile.setup / (netYr1 + avoidedUpgradeCapex * 0.25)) * 12));
+
+  document.getElementById('scalingOutput').innerHTML = `
+    <div class="spec-list">
+      <div class="spec-row"><span class="k">Strategy</span><span class="v" style="color:var(--building)">${costProfile.label}</span></div>
+      <div class="spec-row"><span class="k">Annual Peak + Energy Savings (SIMULATED)</span><span class="v" style="color:var(--accent)">€${totalAnnualBenefit.toLocaleString()} / yr</span></div>
+      <div class="spec-row"><span class="k">Avoided Grid Upgrades CapEx (SIMULATED)</span><span class="v" style="color:var(--solar)">€${avoidedUpgradeCapex.toLocaleString()}</span></div>
+      <div class="spec-row"><span class="k">Initial Integration &amp; Setup (SIMULATED)</span><span class="v">€${costProfile.setup.toLocaleString()}</span></div>
+      <div class="spec-row"><span class="k">Recurring MLOps + Oversight + Training/yr</span><span class="v">€${costProfile.annualOps.toLocaleString()} / yr</span></div>
+      <div class="spec-row"><span class="k">Payback (OpEx Savings Only / Incl. Grid CapEx)</span><span class="v" style="color:var(--accent)">${paybackMonths} mo / ${paybackWithCapex} mo</span></div>
+    </div>
+  `;
+}
+
+function renderAll() {
+  lastSim = runSimulation();
+  renderHeaderAndKPIs(lastSim);
+  renderOverview(lastSim);
+  renderBeforeAfter(lastSim);
+  renderManagerView(lastSim);
+  renderMonitorView(lastSim);
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// USER INTERACTIONS & ACTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+function switchView(viewKey) {
+  document.querySelectorAll('.tab').forEach(t => {
+    const active = t.dataset.view === viewKey;
+    t.classList.toggle('active', active);
+    t.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + viewKey));
+}
+
+function setScenario(key) {
+  state.scenario = key;
+  state.failSafe = false;
+  if (state.planStatus === 'APPROVED') {
+    state.planStatus = state.optimized ? 'PENDING' : 'BASELINE';
+    state.planHash = 'UNSIGNED (RE-VERIFY)';
+  }
+  document.querySelectorAll('#scenarioBtns button').forEach(b => b.classList.toggle('active', b.dataset.key === key));
+  logAudit('SCENARIO', `Switched simulation to "${SCENARIOS[key].label}" (${SCENARIOS[key].solarKwh} kWh solar forecast).`);
+  renderAll();
+}
+
+function runOptimize() {
+  state.failSafe = false;
+  state.optimized = true;
+  state.planStatus = 'PENDING';
+  state.planHash = 'DRAFT · AWAITING SIGN-OFF';
+  state.totalDecisions++;
+  const sim = runSimulation();
+  logAudit('OPTIMIZE', `Constrained plan computed (${SCENARIOS[state.scenario].label}): Peak ${sim.econBefore.peak} → ${sim.econAfter.peak} kW (${sim.peakReductionPct}%), ${sim.shiftedPct}% shifted off 09:00.`);
+  renderAll();
+}
+
+function resetBaseline() {
+  state.failSafe = false;
+  state.optimized = false;
+  state.planStatus = 'BASELINE';
+  state.planHash = 'UNSIGNED (BASELINE)';
+  logAudit('BASELINE', 'Viewing uncoordinated plug-in baseline schedule.');
+  renderAll();
+}
+
+function approvePlan() {
+  if (!state.optimized) runOptimize();
+  state.planStatus = 'APPROVED';
+  const code = 'SIG-' + Math.abs((state.maxDemand * 31 + state.minCharge * 17 + state.overrideCount * 7 + state.scenario.length * 13)).toString(16).toUpperCase().padStart(4, '0');
+  state.planHash = `${code} · LOCKED`;
+  state.totalDecisions++;
+  logAudit('APPROVE', `Facility manager signed & locked day-ahead charger dispatch plan (${code}). Dispatched via OCPP 2.0.1.`);
+  document.getElementById('managerFeedback').innerHTML = `<span style="color:var(--accent)">APPROVED · Plan ${code} signed by Facility Manager and queued for OCPP charger dispatch.</span>`;
+  renderAll();
+}
+
+function openModify() {
+  state.modifyOpen = true;
+  switchView('manager');
+  renderAll();
+  document.getElementById('modifyPanel').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function toggleModifyMode() {
+  state.modifyOpen = !state.modifyOpen;
+  document.getElementById('managerFeedback').innerHTML = state.modifyOpen
+    ? '<span style="color:var(--building)">MODIFY MODE · Adjust per-vehicle departure, priority, or morning lock below, then click Save &amp; Re-Optimize.</span>'
+    : 'Modify editor closed.';
+  renderAll();
+}
+
+function commitModifications() {
+  const rows = document.querySelectorAll('#modifyTable [data-vid]');
+  let changes = 0;
+  rows.forEach(el => {
+    const vid = el.dataset.vid;
+    const field = el.dataset.field;
+    const base = BASE_VEHICLES.find(x => x.id === vid);
+    if (!state.vehicleOverrides[vid]) state.vehicleOverrides[vid] = {};
+    const val = el.type === 'checkbox' ? el.checked : el.value;
+    if (state.vehicleOverrides[vid][field] !== val) {
+      state.vehicleOverrides[vid][field] = val;
+      if ((field === 'dep' && val !== base.dep) || (field === 'prio' && val !== base.prio) || (field === 'lockMorning' && val)) changes++;
+    }
+  });
+  state.optimized = true;
+  state.planStatus = 'MODIFIED';
+  state.planHash = 'MODIFIED · PENDING SIGN';
+  state.overrideCount++;
+  state.totalDecisions++;
+  state.modifyOpen = false;
+  logAudit('OVERRIDE', `Manager applied ${Math.max(1, changes)} manual schedule override(s) and re-optimized fleet.`, 'warn');
+  document.getElementById('managerFeedback').innerHTML = `<span style="color:var(--building)">MODIFIED · Manual vehicle overrides saved and re-optimized. Click APPROVE PLAN to sign.</span>`;
+  renderAll();
+}
+
+function rejectPlan() {
+  state.optimized = false;
+  state.failSafe = false;
+  state.planStatus = 'REJECTED';
+  state.planHash = 'REJECTED · BASELINE';
+  state.overrideCount++;
+  state.totalDecisions++;
+  logAudit('REJECT', 'Manager rejected AI schedule; reverted to uncoordinated baseline charging.', 'danger');
+  document.getElementById('managerFeedback').innerHTML = `<span style="color:var(--grid)">REJECTED · AI plan rejected and logged. Chargers reverted to baseline plug-in schedule.</span>`;
+  renderAll();
+}
+
+function syncDemandInput(val) {
+  state.maxDemand = +val;
+  document.getElementById('lblMaxDemand').textContent = state.maxDemand + ' kW';
+  applyManagerControls();
+}
+
+function syncChargeInput(val) {
+  state.minCharge = +val;
+  document.getElementById('lblMinCharge').textContent = state.minCharge + '%';
+  applyManagerControls();
+}
+
+function applyManagerControls() {
+  state.priorityMode = document.getElementById('selPriorityMode').value;
+  if (state.optimized) {
+    state.planStatus = 'MODIFIED';
+    state.planHash = 'CONSTRAINTS UPDATED';
+  }
+  logAudit('CONSTRAINT', `Updated limits: Max Demand ${state.maxDemand} kW · Min SoC ${state.minCharge}% · Policy "${state.priorityMode}".`);
+  document.getElementById('managerFeedback').textContent = `Constraints updated (${state.maxDemand} kW cap, ${state.minCharge}% min charge). Schedule recalculated.`;
+  renderAll();
+}
+
+function activateUrgentTrip(explicitId) {
+  const id = explicitId || document.getElementById('urgentSelect').value;
+  state.urgentIds.add(id);
+  state.failSafe = false;
+  state.optimized = true;
+  state.planStatus = 'MODIFIED';
+  state.planHash = 'URGENT RE-OPT · PENDING';
+  state.selectedVehicleId = id;
+  state.overrideCount++;
+  state.totalDecisions++;
+  logAudit('URGENT TRIP', `${id} flagged for Urgent Business Trip → immediate 11 kW boost; flexible EVs rebalanced under ${state.maxDemand} kW cap.`, 'warn');
+  renderAll();
+}
+
+function quickUrgent(id) {
+  if (state.urgentIds.has(id)) {
+    state.urgentIds.delete(id);
+    logAudit('URGENT CLEAR', `Cleared Urgent Business Trip flag on ${id}.`);
+    renderAll();
+  } else {
+    activateUrgentTrip(id);
+  }
+}
+
+function clearUrgentTrips() {
+  state.urgentIds.clear();
+  logAudit('URGENT CLEAR', 'Cleared all Urgent Business Trip flags; standard schedule restored.');
+  renderAll();
+}
+
+function toggleFailSafe() {
+  state.failSafe = !state.failSafe;
+  state.optimized = true;
+  if (state.failSafe) {
+    state.planStatus = 'FAILSAFE';
+    state.planHash = 'LOCAL EDGE CONTROLLER';
+    logAudit('FAIL-SAFE', 'Simulated cloud/API outage → Local Edge Fail-Safe engaged (3.7 kW safe breaker cap).', 'warn');
+  } else {
+    state.planStatus = 'PENDING';
+    state.planHash = 'CLOUD AI RESTORED';
+    logAudit('RESTORE', 'Cloud forecast & optimizer link restored; re-computed constrained schedule.');
+  }
+  renderAll();
+}
+
+function selectExplainVehicle(id, scroll = false) {
+  state.selectedVehicleId = id;
+  renderExplainability(lastSim);
+  renderEVTable(lastSim);
+  if (scroll) {
+    document.getElementById('explainPanel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+}
+
+function cycleExplain() {
+  const list = lastSim.fleet.filter(v => state.showAllEVs || v.rep);
+  const idx = list.findIndex(v => v.id === state.selectedVehicleId);
+  selectExplainVehicle(list[(idx + 1) % list.length].id);
+}
+
+function toggleShowAllEVs() {
+  state.showAllEVs = !state.showAllEVs;
+  renderOverview(lastSim);
+}
+
+// ── 8-MIN PRESENTATION WALKTHROUGH CONTROLLER ──
+function toggleDemoGuide() {
+  const drawer = document.getElementById('demoDrawer');
+  const isOpen = drawer.classList.toggle('open');
+  document.getElementById('demoGuideBtn').textContent = isOpen ? 'Hide Demo Guide' : '8-Min Demo Guide';
+}
+
+function demoStep(n) {
+  document.querySelectorAll('.demo-step').forEach(el => el.classList.toggle('active-step', +el.dataset.step === n));
+  if (n === 1) {
+    state.urgentIds.clear();
+    state.vehicleOverrides = {};
+    state.maxDemand = 350;
+    state.minCharge = 80;
+    state.failSafe = false;
+    state.scenario = 'sunny';
+    state.optimized = false;
+    state.planStatus = 'BASELINE';
+    state.planHash = 'UNSIGNED (BASELINE)';
+    document.querySelectorAll('#scenarioBtns button').forEach(b => b.classList.toggle('active', b.dataset.key === 'sunny'));
+    switchView('overview');
+    renderAll();
+  } else if (n === 2) {
+    state.scenario = 'sunny';
+    document.querySelectorAll('#scenarioBtns button').forEach(b => b.classList.toggle('active', b.dataset.key === 'sunny'));
+    state.selectedVehicleId = 'EV-08';
+    runOptimize();
+    switchView('optimize');
+  } else if (n === 3) {
+    switchView('manager');
+    activateUrgentTrip('EV-04');
+  } else if (n === 4) {
+    setScenario('unexpected');
+    runOptimize();
+    switchView('monitor');
+  } else if (n === 5) {
+    switchView('governance');
+  }
+}
+
+// ── INITIALIZATION ──
+function init() {
+  // Build Scenario Buttons
+  const sb = document.getElementById('scenarioBtns');
+  sb.innerHTML = Object.values(SCENARIOS).map(s =>
+    `<button data-key="${s.key}" class="${s.key === state.scenario ? 'active' : ''}" onclick="setScenario('${s.key}')">${s.label}</button>`
+  ).join('');
+
+  // Tab Wiring
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => switchView(t.dataset.view));
+  });
+
+  renderAll();
+
+  // Optional URL hash support for live presentation bookmarking (#step=1..5 or #demo)
+  const hash = (window.location.hash || '').replace(/^#/, '');
+  if (hash === 'demo') toggleDemoGuide();
+  else if (/^step=[1-5]$/.test(hash)) {
+    demoStep(+hash.split('=')[1]);
+  } else if (hash === 'opt-overview') {
+    runOptimize();
+    switchView('overview');
+  }
+}
+
+init();
+</script>
+</body>
+</html>
