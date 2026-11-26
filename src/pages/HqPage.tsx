@@ -36,15 +36,16 @@ import { siteStatus } from '../scene3d/BuildingMesh';
 type TabId = 1 | 2 | 3;
 
 const TABS: Array<{ id: TabId; label: string }> = [
-  { id: 1, label: '01 Spatial Twin' },
-  { id: 2, label: '02 Pilot vs Control' },
-  { id: 3, label: '03 Governance & Scaling' },
+  { id: 1, label: 'Live 3D Map' },
+  { id: 2, label: 'Pilot vs Control' },
+  { id: 3, label: 'Governance & Scaling' },
 ];
 
 const PRESETS: Array<{ id: CameraPreset; label: string }> = [
-  { id: 'overview', label: 'Overview' },
+  { id: 'overview', label: 'Valley' },
+  { id: 'alpine', label: 'Alps & Solar Farm' },
   { id: 'focus', label: 'Focus Site' },
-  { id: 'substation', label: 'Substation' },
+  { id: 'substation', label: 'Relays' },
   { id: 'top', label: 'Top' },
 ];
 
@@ -256,8 +257,8 @@ export default function HqPage() {
       syncMode={mode}
       onDispatch={dispatch}
       activeNav="hq"
-      title="HQ Portfolio & Governance"
-      subtitle={`Grenoble IT Sector · ${data.totals.sites} sites · MV substation ${fmt(data.substation.currentKw)} / ${fmt(data.substation.capKw)} kW · GDPR aggregated projection only`}
+      title="Portfolio Analytics"
+      subtitle={`Grenoble IT Campus · ${data.totals.sites} buildings · ${fmt(data.substation.currentKw)} / ${fmt(data.substation.capKw)} kW feeder · Aggregate GDPR telemetry only`}
       onOpenDemoGuide={() => setDemoOpen(true)}
       headerActions={
         <>
@@ -293,85 +294,83 @@ export default function HqPage() {
       }
     >
       <div className="space-y-5">
-        {/* Single hairline 6-column KPI strip */}
-        <section className="card overflow-hidden !p-0">
-          <div className="grid grid-cols-2 divide-x divide-y divide-[#e5e3dc] md:grid-cols-3 xl:grid-cols-6 xl:divide-y-0">
-            <div className="p-4">
-              <div className="label">District Grid Load</div>
+        {/* Clean Apple/Tesla KPI Card Grid */}
+        <section className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
+            <div className="card !p-4">
+              <div className="label">Total Grid Load</div>
               <div
                 className={`metric mt-1.5 text-2xl ${
-                  data.substation.breaching ? 'text-[#dc2626]' : 'text-[#141413]'
+                  data.substation.breaching ? 'text-[#ef4444]' : 'text-[#111827]'
                 }`}
               >
                 {fmt(data.totals.currentKw)}
-                <span className="ml-1 text-xs font-normal text-[#86847b]">kW</span>
+                <span className="ml-1 text-xs font-normal text-[#6b7280]">kW</span>
               </div>
-              <div className="tnum mt-1 text-[11px] text-[#57564f]">
-                vs {fmt(data.substation.capKw)} kW MV cap
+              <div className="tnum mt-1 text-xs text-[#6b7280]">
+                of {fmt(data.substation.capKw)} kW limit
               </div>
             </div>
 
-            <div className="p-4">
-              <div className="label">Sites Breaching Cap</div>
+            <div className="card !p-4">
+              <div className="label">Over Limit</div>
               <div
                 className={`metric mt-1.5 text-2xl ${
-                  breachingCount > 0 ? 'text-[#dc2626]' : 'text-[#0f766e]'
+                  breachingCount > 0 ? 'text-[#ef4444]' : 'text-[#10b981]'
                 }`}
               >
                 {breachingCount} / {data.sites.length}
               </div>
-              <div className="tnum mt-1 text-[11px] text-[#57564f]">Live slot</div>
+              <div className="tnum mt-1 text-xs text-[#6b7280]">Buildings now</div>
             </div>
 
-            <div className="p-4">
-              <div className="label">EVs Connected</div>
-              <div className="metric mt-1.5 text-2xl text-[#141413]">
+            <div className="card !p-4">
+              <div className="label">Parked EVs</div>
+              <div className="metric mt-1.5 text-2xl text-[#111827]">
                 {fmt(data.totals.evsConnected)}
               </div>
-              <div className="tnum mt-1 text-[11px] text-[#57564f]">
+              <div className="tnum mt-1 text-xs text-[#6b7280]">
                 of {fmt(data.totals.totalBays)} bays
               </div>
             </div>
 
-            <div className="p-4">
-              <div className="label">District Solar PV</div>
-              <div className="metric mt-1.5 text-2xl text-[#b45309]">
+            <div className="card !p-4">
+              <div className="label">Solar Generated</div>
+              <div className="metric mt-1.5 text-2xl text-[#d97706]">
                 {fmt(data.totals.solarKwh)}
-                <span className="ml-1 text-xs font-normal text-[#86847b]">kWh</span>
+                <span className="ml-1 text-xs font-normal text-[#6b7280]">kWh</span>
               </div>
-              <div className="tnum mt-1 text-[11px] text-[#57564f]">
-                {Math.round(data.totals.solarSelfPct)}% self-consumed
+              <div className="tnum mt-1 text-xs text-[#6b7280]">
+                {Math.round(data.totals.solarSelfPct)}% used onsite
               </div>
             </div>
 
-            <div className="p-4">
-              <div className="label">Fleet Ready</div>
+            <div className="card !p-4">
+              <div className="label">Vehicles Ready</div>
               <div
                 className={`metric mt-1.5 text-2xl ${
-                  data.totals.readyPct >= 100 ? 'text-[#0f766e]' : 'text-[#b45309]'
+                  data.totals.readyPct >= 100 ? 'text-[#10b981]' : 'text-[#d97706]'
                 }`}
               >
                 {Math.round(data.totals.readyPct)}%
               </div>
-              <div className="tnum mt-1 text-[11px] text-[#57564f]">
-                {fmt(data.totals.readyCount)} aggregate count
+              <div className="tnum mt-1 text-xs text-[#6b7280]">
+                {fmt(data.totals.readyCount)} ready by departure
               </div>
             </div>
 
-            <div className="p-4">
-              <div className="label">Est. Daily Saving</div>
-              <div className="metric mt-1.5 text-2xl text-[#0f766e]">
+            <div className="card !p-4">
+              <div className="label">Est. Daily Savings</div>
+              <div className="metric mt-1.5 text-2xl text-[#10b981]">
                 €{fmt(data.totals.dailySavingEur)}
               </div>
-              <div className="tnum mt-1 text-[11px] text-[#57564f]">Simulated</div>
+              <div className="tnum mt-1 text-xs text-[#6b7280]">Simulated</div>
             </div>
-          </div>
         </section>
 
-        {/* Swiss Underline Tabs */}
+        {/* Clean Pill Tabs */}
         <nav
-          className="flex flex-wrap gap-x-6 gap-y-1 border-b border-[#e5e3dc]"
-          aria-label="HQ Command tabs"
+          className="inline-flex flex-wrap gap-1 rounded-xl bg-slate-200/70 p-1"
+          aria-label="HQ Analytics tabs"
         >
           {TABS.map((t) => {
             const active = tab === t.id;
@@ -379,10 +378,10 @@ export default function HqPage() {
               <button
                 key={t.id}
                 type="button"
-                className={`-mb-px whitespace-nowrap border-b-2 pb-2.5 text-[13px] transition-colors ${
+                className={`whitespace-nowrap rounded-lg px-3.5 py-1.5 text-[13px] transition-all ${
                   active
-                    ? 'border-[#141413] font-semibold text-[#141413]'
-                    : 'border-transparent font-medium text-[#57564f] hover:text-[#141413]'
+                    ? 'bg-white font-semibold text-[#111827] shadow-sm'
+                    : 'font-medium text-[#4b5563] hover:text-[#111827]'
                 }`}
                 onClick={() => setTab(t.id)}
               >

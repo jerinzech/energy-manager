@@ -1,16 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent, ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   BarChart3,
   BookOpen,
+  ChevronDown,
+  Clock,
   ExternalLink,
   LayoutGrid,
   Map as MapIcon,
-  Menu,
   Pause,
   Play,
-  X,
+  SlidersHorizontal,
   Zap,
 } from 'lucide-react';
 import type { ActionPayload, HqSnapshot, HqSiteSummary, ScenarioKey, SiteId } from '../engine';
@@ -44,11 +45,11 @@ function shortCampusLabel(site: HqSiteSummary): string {
 }
 
 function statusDotColor(site: HqSiteSummary, serverOnline: boolean): string {
-  if (!serverOnline || !site.online) return '#86847b';
-  if (site.breaching || site.currentKw > site.capKw) return '#dc2626';
-  if (site.optimized && !site.failSafe) return '#0f766e';
-  if (site.failSafe || site.urgentCount > 0 || site.planStatus === 'PENDING') return '#b45309';
-  return '#1d4ed8';
+  if (!serverOnline || !site.online) return '#9ca3af';
+  if (site.breaching || site.currentKw > site.capKw) return '#ef4444';
+  if (site.optimized && !site.failSafe) return '#10b981';
+  if (site.failSafe || site.urgentCount > 0 || site.planStatus === 'PENDING') return '#f59e0b';
+  return '#2563eb';
 }
 
 export function AppShell({
@@ -66,16 +67,35 @@ export function AppShell({
 }: AppShellProps) {
   const navigate = useNavigate();
   const location = useLocation();
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [buildingsOpen, setBuildingsOpen] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
   const [roomDraft, setRoomDraft] = useState(room);
+
+  const buildingsRef = useRef<HTMLDivElement | null>(null);
+  const controlsRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     setRoomDraft(room);
   }, [room]);
 
   useEffect(() => {
-    setMobileOpen(false);
+    setBuildingsOpen(false);
+    setControlsOpen(false);
   }, [location.pathname, location.search]);
+
+  useEffect(() => {
+    const onPointerDown = (event: MouseEvent) => {
+      const target = event.target as Node;
+      if (buildingsRef.current && !buildingsRef.current.contains(target)) {
+        setBuildingsOpen(false);
+      }
+      if (controlsRef.current && !controlsRef.current.contains(target)) {
+        setControlsOpen(false);
+      }
+    };
+    window.addEventListener('mousedown', onPointerDown);
+    return () => window.removeEventListener('mousedown', onPointerDown);
+  }, []);
 
   const handleRoomSubmit = (event: FormEvent) => {
     event.preventDefault();
@@ -86,318 +106,309 @@ export function AppShell({
       .slice(0, 64);
     const target = cleaned || room;
     setRoomDraft(target);
+    setControlsOpen(false);
     navigate(`${location.pathname}?room=${encodeURIComponent(target)}`);
   };
 
   const isLive = syncMode === 'ws';
   const roomQuery = `?room=${encodeURIComponent(room)}`;
-
-  const sidebarContent = (
-    <div className="flex h-full flex-col bg-white text-[#141413]">
-      {/* Brand Header */}
-      <div className="flex items-center justify-between border-b border-[#e5e3dc] px-4 py-4">
-        <Link
-          to={`/${roomQuery}`}
-          className="flex items-center gap-2.5 text-[#141413] no-underline hover:no-underline"
-        >
-          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-[#141413] text-white">
-            <Zap className="h-3.5 w-3.5" strokeWidth={2.25} />
-          </span>
-          <div className="leading-tight">
-            <div className="text-[13.5px] font-bold tracking-[-0.02em] text-[#141413]">
-              Grid-Sense
-            </div>
-            <div className="font-mono text-[10px] font-medium text-[#86847b]">
-              Grenoble Grid
-            </div>
-          </div>
-        </Link>
-        <button
-          type="button"
-          aria-label="Close navigation"
-          className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#57564f] hover:bg-[#efeee9] hover:text-[#141413] lg:hidden"
-          onClick={() => setMobileOpen(false)}
-        >
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-
-      {/* Scrollable Nav + Campuses */}
-      <div className="flex-1 overflow-y-auto px-3 py-4">
-        <div className="px-2 pb-1.5 font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-[#86847b]">
-          Workspace
-        </div>
-        <nav className="space-y-0.5" aria-label="Primary navigation">
-          <Link
-            to={`/${roomQuery}`}
-            className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] no-underline transition-colors hover:no-underline ${
-              activeNav === 'launcher'
-                ? 'bg-[#efeee9] font-semibold text-[#141413]'
-                : 'font-medium text-[#57564f] hover:bg-[#faf9f6] hover:text-[#141413]'
-            }`}
-          >
-            <LayoutGrid className="h-4 w-4 shrink-0" />
-            <span className="truncate">Switchboard</span>
-          </Link>
-
-          <Link
-            to={`/hq${roomQuery}`}
-            className={`flex items-center gap-2.5 rounded-md px-2.5 py-2 text-[13px] no-underline transition-colors hover:no-underline ${
-              activeNav === 'hq'
-                ? 'bg-[#efeee9] font-semibold text-[#141413]'
-                : 'font-medium text-[#57564f] hover:bg-[#faf9f6] hover:text-[#141413]'
-            }`}
-          >
-            <BarChart3 className="h-4 w-4 shrink-0" />
-            <span className="truncate">HQ Analytics</span>
-          </Link>
-
-          <a
-            href={`/map${roomQuery}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-between gap-2 rounded-md px-2.5 py-2 text-[13px] font-medium text-[#57564f] no-underline transition-colors hover:bg-[#faf9f6] hover:text-[#141413] hover:no-underline"
-          >
-            <span className="flex min-w-0 items-center gap-2.5">
-              <MapIcon className="h-4 w-4 shrink-0" />
-              <span className="truncate">3D Spatial Map</span>
-            </span>
-            <ExternalLink className="h-3.5 w-3.5 shrink-0 text-[#86847b]" />
-          </a>
-        </nav>
-
-        {/* Campuses List */}
-        <div className="mt-6 flex items-center justify-between px-2 pb-1.5">
-          <span className="font-mono text-[10px] font-medium uppercase tracking-[0.06em] text-[#86847b]">
-            Campuses ({hqData.sites.length})
-          </span>
-          <span className="font-mono text-[10px] text-[#86847b] tabular-nums">
-            {Math.round(hqData.substation.currentKw)} kW
-          </span>
-        </div>
-
-        <nav className="space-y-0.5" aria-label="Campuses">
-          {hqData.sites.map((site) => {
-            const isActive = activeNav === 'site' && activeSiteId === site.id;
-            const effectiveOn = site.online && hqData.serverOnline;
-            const dotColor = statusDotColor(site, hqData.serverOnline);
-            const isBreach = effectiveOn && (site.breaching || site.currentKw > site.capKw);
-
-            return (
-              <Link
-                key={site.id}
-                to={`/sites/${site.id}${roomQuery}`}
-                className={`flex items-center justify-between gap-2 rounded-md px-2.5 py-2 text-[12.5px] no-underline transition-colors hover:no-underline ${
-                  isActive
-                    ? 'bg-[#efeee9] font-semibold text-[#141413]'
-                    : 'font-medium text-[#57564f] hover:bg-[#faf9f6] hover:text-[#141413]'
-                }`}
-              >
-                <span className="flex min-w-0 items-center gap-2">
-                  <span
-                    className="h-1.5 w-1.5 shrink-0 rounded-full"
-                    style={{ backgroundColor: dotColor }}
-                  />
-                  <span className="truncate">{shortCampusLabel(site)}</span>
-                  {site.unreadNotifications > 0 ? (
-                    <span
-                      title={`${site.unreadNotifications} unread agent alert(s)`}
-                      className="inline-flex h-4 min-w-[16px] shrink-0 items-center justify-center rounded-full bg-[#eef2ff] px-1 font-mono text-[9.5px] font-semibold text-[#3730a3]"
-                    >
-                      {site.unreadNotifications}
-                    </span>
-                  ) : null}
-                </span>
-                <span
-                  className={`shrink-0 font-mono text-[11px] tabular-nums ${
-                    !effectiveOn
-                      ? 'text-[#86847b]'
-                      : isBreach
-                        ? 'font-semibold text-[#dc2626]'
-                        : 'text-[#57564f]'
-                  }`}
-                >
-                  {effectiveOn ? `${Math.round(site.currentKw)} kW` : 'Off'}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
-      </div>
-
-      {/* Pinned Bottom Control Footer */}
-      <div className="space-y-3 border-t border-[#e5e3dc] bg-[#faf9f6] px-3.5 py-3.5">
-        {/* Sync status + Inline room switcher */}
-        <form onSubmit={handleRoomSubmit} className="flex items-center gap-1.5">
-          <span
-            className="inline-flex shrink-0 items-center gap-1.5 font-mono text-[10.5px] font-medium text-[#57564f]"
-            title={isLive ? 'Live WebSocket Durable Object sync' : 'Local browser fallback sync'}
-          >
-            <span
-              className="h-2 w-2 rounded-full"
-              style={{ backgroundColor: isLive ? '#0f766e' : '#b45309' }}
-            />
-            {isLive ? 'Live' : 'Local'}
-          </span>
-          <input
-            type="text"
-            value={roomDraft}
-            aria-label="Room name"
-            onChange={(e) => setRoomDraft(e.target.value)}
-            className="input min-w-0 flex-1 !px-2 !py-1 font-mono !text-[11px]"
-            placeholder="room"
-          />
-          <button
-            type="submit"
-            className="btn btn-secondary !min-h-0 shrink-0 !px-2 !py-1 !text-[11px]"
-            title="Switch sync room"
-          >
-            Go
-          </button>
-        </form>
-
-        {/* Clock Play/Pause + Time + Scrubber */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between gap-2">
-            <button
-              type="button"
-              className="btn btn-secondary !min-h-0 !px-2 !py-1 !text-[11px]"
-              onClick={() =>
-                void onDispatch({ type: 'SET_CLOCK', playing: !hqData.clock.playing })
-              }
-            >
-              {hqData.clock.playing ? (
-                <Pause className="h-3 w-3" />
-              ) : (
-                <Play className="h-3 w-3" />
-              )}
-              {hqData.clock.playing ? 'Pause' : 'Play'}
-            </button>
-            <span className="font-mono text-[12px] font-semibold text-[#141413] tabular-nums">
-              {hqData.clock.time}
-            </span>
-          </div>
-          <input
-            type="range"
-            min={0}
-            max={55}
-            step={1}
-            value={hqData.clock.slot}
-            aria-label="Simulation clock 06:00–19:45"
-            className="w-full cursor-pointer"
-            style={{ accentColor: '#0f766e' }}
-            onChange={(e) =>
-              void onDispatch({ type: 'SET_CLOCK', slot: Number(e.target.value) })
-            }
-          />
-        </div>
-
-        {/* Scenario dropdown */}
-        <div>
-          <select
-            className="select !py-1.5 !text-[11.5px]"
-            value={hqData.scenario}
-            aria-label="Simulation scenario"
-            onChange={(e) =>
-              void onDispatch({
-                type: 'SET_SCENARIO',
-                scenario: e.target.value as ScenarioKey,
-              })
-            }
-          >
-            {hqData.scenarios.map((meta) => (
-              <option key={meta.key} value={meta.key}>
-                {meta.label}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        {/* Quiet Demo Guide trigger */}
-        {onOpenDemoGuide ? (
-          <button
-            type="button"
-            className="btn btn-secondary w-full !min-h-0 !py-1.5 !text-[11.5px] text-[#57564f]"
-            onClick={onOpenDemoGuide}
-          >
-            <BookOpen className="h-3.5 w-3.5 text-[#57564f]" />
-            8-Min Demo Guide
-          </button>
-        ) : null}
-      </div>
-    </div>
-  );
+  const activeScenario = hqData.scenarios.find((s) => s.key === hqData.scenario);
+  const activeBuilding = hqData.sites.find((s) => s.id === activeSiteId);
+  const totalUnread = hqData.sites.reduce((sum, s) => sum + (s.unreadNotifications ?? 0), 0);
 
   return (
-    <div className="min-h-screen bg-[#f5f4f0] text-[#141413]">
-      {/* Desktop fixed left sidebar */}
-      <aside className="hidden lg:fixed lg:inset-y-0 lg:left-0 lg:z-30 lg:block lg:w-[248px] lg:border-r lg:border-[#e5e3dc] lg:bg-white">
-        {sidebarContent}
-      </aside>
-
-      {/* Mobile collapsible top bar */}
-      <div className="sticky top-0 z-30 flex items-center justify-between border-b border-[#e5e3dc] bg-white px-4 py-3 lg:hidden">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <button
-            type="button"
-            aria-label="Open navigation menu"
-            className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-[#e5e3dc] text-[#141413] hover:bg-[#efeee9]"
-            onClick={() => setMobileOpen(true)}
+    <div className="min-h-screen bg-[#f6f7f9] text-[#111827]">
+      {/* Sticky Minimalist Top Navigation Bar */}
+      <header className="sticky top-0 z-40 border-b border-black/[0.06] bg-white/90 backdrop-blur-md">
+        <div className="mx-auto flex h-16 max-w-[1280px] items-center justify-between gap-3 px-4 sm:px-8">
+          {/* Brand */}
+          <Link
+            to={`/${roomQuery}`}
+            className="flex shrink-0 items-center gap-2.5 text-[#111827] no-underline hover:no-underline"
           >
-            <Menu className="h-4 w-4" />
-          </button>
-          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-[#141413] text-white">
-            <Zap className="h-3 w-3" strokeWidth={2.25} />
-          </span>
-          <span className="truncate text-[13.5px] font-bold tracking-[-0.02em] text-[#141413]">
-            Grid-Sense
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-2 font-mono text-[11px] text-[#57564f]">
-          <span
-            className="h-2 w-2 rounded-full"
-            style={{ backgroundColor: isLive ? '#0f766e' : '#b45309' }}
-          />
-          <span className="tabular-nums">{hqData.clock.time}</span>
-        </div>
-      </div>
+            <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-[#111827] text-white shadow-sm">
+              <Zap className="h-4 w-4" strokeWidth={2.25} />
+            </span>
+            <span className="text-[15px] font-bold tracking-[-0.02em] text-[#111827]">
+              Grid-Sense
+            </span>
+          </Link>
 
-      {/* Mobile slide-over nav drawer */}
-      {mobileOpen ? (
-        <div className="fixed inset-0 z-50 lg:hidden">
-          <button
-            type="button"
-            aria-label="Dismiss navigation menu"
-            className="absolute inset-0 cursor-default bg-[#141413]/30"
-            onClick={() => setMobileOpen(false)}
-          />
-          <aside className="absolute inset-y-0 left-0 w-[268px] max-w-[85vw] border-r border-[#e5e3dc] bg-white shadow-xl">
-            {sidebarContent}
-          </aside>
-        </div>
-      ) : null}
+          {/* Primary Navigation */}
+          <nav
+            className="flex items-center gap-1 overflow-x-auto sm:overflow-visible"
+            aria-label="Primary navigation"
+          >
+            <Link
+              to={`/${roomQuery}`}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium no-underline transition hover:no-underline ${
+                activeNav === 'launcher'
+                  ? 'bg-[#111827] text-white'
+                  : 'text-[#4b5563] hover:bg-[#f1f5f9] hover:text-[#111827]'
+              }`}
+            >
+              <LayoutGrid className="h-3.5 w-3.5" />
+              Switchboard
+            </Link>
 
-      {/* Main scrollable paper canvas */}
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col lg:pl-[248px]">
-        <header className="border-b border-[#e5e3dc] bg-[#f5f4f0] px-4 py-4 md:px-7 md:py-5">
-          <div className="mx-auto flex w-full max-w-[1380px] flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold tracking-[-0.025em] text-[#141413] md:text-[22px]">
-                {title}
-              </h1>
-              {subtitle ? (
-                <p className="mt-0.5 text-[12.5px] text-[#57564f]">{subtitle}</p>
+            {/* Buildings Dropdown */}
+            <div ref={buildingsRef} className="relative">
+              <button
+                type="button"
+                aria-expanded={buildingsOpen}
+                onClick={() => {
+                  setBuildingsOpen((v) => !v);
+                  setControlsOpen(false);
+                }}
+                className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium transition ${
+                  activeNav === 'site'
+                    ? 'bg-[#111827] text-white'
+                    : 'text-[#4b5563] hover:bg-[#f1f5f9] hover:text-[#111827]'
+                }`}
+              >
+                <span>
+                  {activeBuilding ? shortCampusLabel(activeBuilding) : 'Buildings'}
+                </span>
+                {totalUnread > 0 && activeNav !== 'site' ? (
+                  <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#f59e0b]" />
+                ) : null}
+                <ChevronDown className="h-3.5 w-3.5 opacity-70" />
+              </button>
+
+              {buildingsOpen ? (
+                <div className="fixed left-4 right-4 top-[68px] z-50 rounded-2xl border border-black/[0.08] bg-white p-2 shadow-xl sm:absolute sm:left-0 sm:right-auto sm:top-full sm:mt-2 sm:w-72">
+                  <div className="px-2.5 py-1.5 text-[11px] font-medium text-[#6b7280]">
+                    Grenoble Campuses ({hqData.sites.length})
+                  </div>
+                  <div className="space-y-0.5">
+                    {hqData.sites.map((site) => {
+                      const isActive = activeNav === 'site' && activeSiteId === site.id;
+                      const effectiveOn = site.online && hqData.serverOnline;
+                      const dot = statusDotColor(site, hqData.serverOnline);
+                      const isBreach =
+                        effectiveOn && (site.breaching || site.currentKw > site.capKw);
+                      return (
+                        <Link
+                          key={site.id}
+                          to={`/sites/${site.id}${roomQuery}`}
+                          className={`flex items-center justify-between gap-2 rounded-xl px-2.5 py-2 text-[13px] no-underline transition hover:no-underline ${
+                            isActive
+                              ? 'bg-[#f1f5f9] font-semibold text-[#111827]'
+                              : 'text-[#374151] hover:bg-[#f8fafc]'
+                          }`}
+                        >
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span
+                              className="h-2 w-2 shrink-0 rounded-full"
+                              style={{ backgroundColor: dot }}
+                            />
+                            <span className="truncate">{site.name}</span>
+                          </span>
+                          <span
+                            className={`shrink-0 font-mono text-[11.5px] tabular-nums ${
+                              !effectiveOn
+                                ? 'text-[#9ca3af]'
+                                : isBreach
+                                  ? 'font-semibold text-[#dc2626]'
+                                  : 'text-[#4b5563]'
+                            }`}
+                          >
+                            {effectiveOn ? `${Math.round(site.currentKw)} kW` : 'Off'}
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
               ) : null}
             </div>
-            {headerActions ? (
-              <div className="flex flex-wrap items-center gap-2">{headerActions}</div>
+
+            <Link
+              to={`/hq${roomQuery}`}
+              className={`inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium no-underline transition hover:no-underline ${
+                activeNav === 'hq'
+                  ? 'bg-[#111827] text-white'
+                  : 'text-[#4b5563] hover:bg-[#f1f5f9] hover:text-[#111827]'
+              }`}
+            >
+              <BarChart3 className="h-3.5 w-3.5" />
+              Analytics
+            </Link>
+
+            <a
+              href={`/map${roomQuery}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-1.5 text-[13px] font-medium text-[#4b5563] no-underline transition hover:bg-[#f1f5f9] hover:text-[#111827] hover:no-underline"
+            >
+              <MapIcon className="h-3.5 w-3.5" />
+              3D Map
+              <ExternalLink className="h-3 w-3 opacity-60" />
+            </a>
+          </nav>
+
+          {/* Simulation & Room Controls Popover */}
+          <div ref={controlsRef} className="relative shrink-0">
+            <button
+              type="button"
+              aria-expanded={controlsOpen}
+              onClick={() => {
+                setControlsOpen((v) => !v);
+                setBuildingsOpen(false);
+              }}
+              className="inline-flex items-center gap-2 rounded-full border border-black/[0.08] bg-[#f8fafc] px-3 py-1.5 text-[12.5px] font-medium text-[#111827] transition hover:bg-[#f1f5f9]"
+            >
+              <span
+                className="h-2 w-2 rounded-full"
+                style={{ backgroundColor: isLive ? '#10b981' : '#f59e0b' }}
+              />
+              <span className="font-mono font-semibold tabular-nums">{hqData.clock.time}</span>
+              <span className="hidden text-[#6b7280] sm:inline">
+                · {activeScenario?.short ?? hqData.scenario}
+              </span>
+              <SlidersHorizontal className="h-3.5 w-3.5 text-[#6b7280]" />
+            </button>
+
+            {controlsOpen ? (
+              <div className="fixed left-4 right-4 top-[68px] z-50 space-y-4 rounded-2xl border border-black/[0.08] bg-white p-4 shadow-xl sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80">
+                <div>
+                  <div className="flex items-center justify-between">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#111827]">
+                      <Clock className="h-3.5 w-3.5 text-[#6b7280]" />
+                      Simulation Clock
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        void onDispatch({
+                          type: 'SET_CLOCK',
+                          playing: !hqData.clock.playing,
+                        })
+                      }
+                      className="inline-flex items-center gap-1 rounded-lg border border-black/[0.08] bg-[#f8fafc] px-2.5 py-1 text-xs font-medium text-[#111827] hover:bg-[#f1f5f9]"
+                    >
+                      {hqData.clock.playing ? (
+                        <Pause className="h-3 w-3" />
+                      ) : (
+                        <Play className="h-3 w-3" />
+                      )}
+                      {hqData.clock.playing ? 'Pause' : 'Play'}
+                    </button>
+                  </div>
+                  <div className="mt-2.5 flex items-center gap-3">
+                    <input
+                      type="range"
+                      min={0}
+                      max={55}
+                      step={1}
+                      value={hqData.clock.slot}
+                      aria-label="Simulation clock 06:00–19:45"
+                      className="h-1.5 flex-1 cursor-pointer accent-[#111827]"
+                      onChange={(e) =>
+                        void onDispatch({
+                          type: 'SET_CLOCK',
+                          slot: Number(e.target.value),
+                        })
+                      }
+                    />
+                    <span className="font-mono text-xs font-semibold text-[#111827] tabular-nums">
+                      {hqData.clock.time}
+                    </span>
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="app-shell-scenario"
+                    className="block text-xs font-semibold text-[#111827]"
+                  >
+                    Weather &amp; Grid Scenario
+                  </label>
+                  <select
+                    id="app-shell-scenario"
+                    value={hqData.scenario}
+                    className="select mt-1.5"
+                    onChange={(e) =>
+                      void onDispatch({
+                        type: 'SET_SCENARIO',
+                        scenario: e.target.value as ScenarioKey,
+                      })
+                    }
+                  >
+                    {hqData.scenarios.map((meta) => (
+                      <option key={meta.key} value={meta.key}>
+                        {meta.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <form onSubmit={handleRoomSubmit}>
+                  <div className="flex items-center justify-between">
+                    <label
+                      htmlFor="app-shell-room"
+                      className="text-xs font-semibold text-[#111827]"
+                    >
+                      Shared Room Sync
+                    </label>
+                    <span className="text-[11px] font-medium text-[#6b7280]">
+                      {isLive ? 'Live Cloud Sync' : 'Local Mode'}
+                    </span>
+                  </div>
+                  <div className="mt-1.5 flex gap-2">
+                    <input
+                      id="app-shell-room"
+                      type="text"
+                      value={roomDraft}
+                      onChange={(e) => setRoomDraft(e.target.value)}
+                      className="input flex-1 !py-1.5 font-mono text-xs"
+                      placeholder="gem-demo"
+                    />
+                    <button
+                      type="submit"
+                      className="btn btn-accent !min-h-0 !px-3 !py-1.5 text-xs"
+                    >
+                      Join
+                    </button>
+                  </div>
+                </form>
+
+                {onOpenDemoGuide ? (
+                  <button
+                    type="button"
+                    className="btn btn-secondary w-full"
+                    onClick={() => {
+                      setControlsOpen(false);
+                      onOpenDemoGuide();
+                    }}
+                  >
+                    <BookOpen className="h-3.5 w-3.5 text-[#6b7280]" />
+                    Open 8-Min Demo Guide
+                  </button>
+                ) : null}
+              </div>
             ) : null}
           </div>
-        </header>
+        </div>
+      </header>
 
-        <main className="min-w-0 flex-1 px-4 py-5 md:px-7 md:py-6">
-          <div className="mx-auto w-full min-w-0 max-w-[1380px]">{children}</div>
-        </main>
+      {/* Main Content Container */}
+      <div className="mx-auto max-w-[1280px] px-4 py-7 sm:px-8 sm:py-9">
+        <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+          <div className="min-w-0">
+            <h1 className="text-2xl font-bold tracking-[-0.03em] text-[#111827] sm:text-[28px]">
+              {title}
+            </h1>
+            {subtitle ? (
+              <p className="mt-1 text-[13.5px] text-[#6b7280]">{subtitle}</p>
+            ) : null}
+          </div>
+          {headerActions ? (
+            <div className="flex flex-wrap items-center gap-2">{headerActions}</div>
+          ) : null}
+        </div>
+
+        <main>{children}</main>
       </div>
     </div>
   );

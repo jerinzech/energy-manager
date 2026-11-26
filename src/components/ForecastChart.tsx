@@ -44,14 +44,14 @@ type SeriesKey = 'building' | 'ev' | 'solar' | 'grid' | 'ghost';
 
 const COLORS = {
   building: '#2563eb',
-  ev: '#0f766e',
-  solar: '#d97706',
-  grid: '#141413',
-  ghost: '#a8a29e',
-  target: '#dc2626',
-  clock: '#141413',
-  gridline: '#eceae4',
-  axis: '#86847b',
+  ev: '#10b981',
+  solar: '#f59e0b',
+  grid: '#111827',
+  ghost: '#9ca3af',
+  target: '#ef4444',
+  clock: '#111827',
+  gridline: '#f1f5f9',
+  axis: '#6b7280',
 };
 
 function safe(values: number[], index: number): number {

@@ -245,6 +245,7 @@ export function createInitialRoomState(room: string): RoomState {
       overrides: {},
       failSafe: false,
       online: true,
+      sellToGrid: false,
       lastAction: null,
       lastActionAt: null,
     };
@@ -619,6 +620,20 @@ export function applyAction(state: RoomState, action: ActionPayload): RoomState 
         action,
         action.siteId,
         `Site AI ${enabled ? 'ENABLED' : 'DISABLED'} at ${site.name}. ${enabled ? 'Optimization is available but not yet requested.' : 'The site is locked to its baseline schedule.'}`,
+      );
+      return next;
+    }
+
+    case 'SITE_SET_SELL_TO_GRID': {
+      const site = SITE_BY_ID[action.siteId];
+      if (!site) return state;
+      const control = next.sites[action.siteId];
+      control.sellToGrid = Boolean(action.enabled);
+      touch(
+        next,
+        action,
+        action.siteId,
+        `Grid export (V2G & solar feed-in) ${control.sellToGrid ? 'ENABLED' : 'DISABLED'} at ${site.name}.`,
       );
       return next;
     }

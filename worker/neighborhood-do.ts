@@ -108,7 +108,13 @@ function migrateRoomState(stored: RoomState): RoomState {
   const sites = { ...stored.sites } as Record<SiteId, SiteControlState>;
   for (const site of SITES) {
     const control = sites[site.id];
-    if (control) sites[site.id] = { ...control, online: control.online ?? true };
+    if (control) {
+      sites[site.id] = {
+        ...control,
+        online: control.online ?? true,
+        sellToGrid: control.sellToGrid ?? false,
+      };
+    }
   }
   return {
     ...stored,
@@ -175,6 +181,12 @@ function siteConvenienceAction(
       return { type: 'SITE_FAILSAFE', siteId, enabled: optionalBoolean(body.enabled) };
     case 'toggle-ai':
       return { type: 'SITE_TOGGLE_AI', siteId, enabled: optionalBoolean(body.enabled) };
+    case 'sell-to-grid':
+      return {
+        type: 'SITE_SET_SELL_TO_GRID',
+        siteId,
+        enabled: optionalBoolean(body.enabled) ?? true,
+      };
     default:
       return null;
   }
@@ -424,7 +436,7 @@ export class NeighborhoodRoom extends DurableObject<Env> {
       }
 
       const siteMatch = url.pathname.match(
-        /^\/api\/site\/([^/]+)\/(state|optimize|reset|approve|reject|constraints|overrides|urgent|failsafe|toggle-ai|power)$/,
+        /^\/api\/site\/([^/]+)\/(state|optimize|reset|approve|reject|constraints|overrides|urgent|failsafe|toggle-ai|power|sell-to-grid)$/,
       );
       if (siteMatch) {
         const siteId = decodeURIComponent(siteMatch[1]);

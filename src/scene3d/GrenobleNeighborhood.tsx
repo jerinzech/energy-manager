@@ -2,29 +2,32 @@ import { Component, useEffect, useMemo, useRef } from 'react';
 import type { MutableRefObject, ReactNode } from 'react';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Line, OrbitControls, Sky } from '@react-three/drei';
+import { Environment, Lightformer, Line, OrbitControls, Sky } from '@react-three/drei';
 import type { HqSiteSummary, HqSnapshot, ScenarioKey, SiteId } from '../engine';
 import { AlpineMountains } from './AlpineMountains';
 import { BuildingMesh, C } from './BuildingMesh';
-import { SolarCarport } from './SolarCarport';
+import { ContextBuildings } from './ContextBuildings';
+import { GrenobleUrbanDetails } from './GrenobleUrbanDetails';
+import { MountainSolarFarm, SOLAR_FARM_RELAY_POS } from './MountainSolarFarm';
 import { SubstationConduits } from './SubstationConduits';
 import { getAsphaltRoadTexture } from './textures';
 
 export type CameraPreset = 'overview' | 'focus' | 'substation' | 'alpine' | 'top';
 export type VisualMode = 'realistic' | 'wireframe';
+export type NavMode = 'pan' | 'orbit';
+export type NavActionType = 'zoom-in' | 'zoom-out' | 'reset-view';
 
 export interface GrenobleNeighborhoodProps {
   data: HqSnapshot;
   selectedSiteId: SiteId | null;
   onSelectSite: (id: SiteId) => void;
   cameraPreset: CameraPreset;
+  cameraNonce?: number;
+  navMode?: NavMode;
+  navAction?: { type: NavActionType; nonce: number } | null;
   visualMode?: VisualMode;
   room?: string;
 }
-
-/* ------------------------------------------------------------------ */
-/* Error boundary — graceful fallback if WebGL is unavailable         */
-/* ------------------------------------------------------------------ */
 
 interface BoundaryProps {
   children: ReactNode;
@@ -37,16 +40,12 @@ class SceneErrorBoundary extends Component<BoundaryProps, { hasError: boolean }>
     return { hasError: true };
   }
   componentDidCatch() {
-    // Rendered fallback covers the failure; nothing else to do.
+    // Rendered fallback handles WebGL errors gracefully.
   }
   render() {
     return this.state.hasError ? this.props.fallback : this.props.children;
   }
 }
-
-/* ------------------------------------------------------------------ */
-/* Procedural campus roads, trees, streetlamps & weather effects       */
-/* ------------------------------------------------------------------ */
 
 interface RoadSegment {
   from: [number, number];
@@ -55,22 +54,26 @@ interface RoadSegment {
 }
 
 const ROAD_SEGMENTS: RoadSegment[] = [
-  // Primary tech-park boulevard ring (clear of MV substation pad [-6.5..6.5, -2.75..6.75])
-  { from: [-42, 8.2], to: [42, 8.2], width: 3.0 },
-  { from: [-42, 8.2], to: [-42, -30], width: 2.6 },
-  { from: [42, 8.2], to: [42, -30], width: 2.6 },
-  { from: [-42, -30], to: [42, -30], width: 2.6 },
-  // South access loop behind Vercors & Chartreuse Annex carports
-  { from: [-42, 8.2], to: [-42, 27], width: 2.5 },
-  { from: [42, 8.2], to: [42, 27], width: 2.5 },
-  { from: [-42, 27], to: [42, 27], width: 2.5 },
-  // Clean driveway spurs to each site carport without crossing the substation
-  { from: [-20, 8.2], to: [-20, -1], width: 2.0 }, // AlpTech HQ carport
-  { from: [-9.5, 8.2], to: [-9.5, -5.8], width: 2.0 }, // Service lane around substation
-  { from: [-9.5, -5.8], to: [2, -5.8], width: 2.0 }, // Isère R&D carport
-  { from: [22, 8.2], to: [22, 4], width: 2.0 }, // Dauphiné Cloud carport
-  { from: [-12, 27], to: [-12, 24], width: 2.0 }, // Vercors Control carport
-  { from: [14, 27], to: [14, 23], width: 2.0 }, // Chartreuse Annex carport
+  // East-West boulevards (continuing smoothly across Isere bridges at -31 & 8.2)
+  { from: [-96, 8.2], to: [72, 8.2], width: 3.3 },
+  { from: [-96, -31], to: [72, -31], width: 2.8 },
+  { from: [-72, -46], to: [72, -46], width: 2.4 },
+  { from: [-72, 26], to: [72, 26], width: 2.8 },
+  { from: [-72, 42], to: [72, 42], width: 2.6 },
+  // North-South avenues creating multi-block Grenoble parcels
+  { from: [-72, -46], to: [-72, 42], width: 2.6 },
+  { from: [-42, -46], to: [-42, 42], width: 2.8 },
+  { from: [40, -46], to: [40, 42], width: 2.8 },
+  { from: [72, -46], to: [72, 42], width: 2.6 },
+  // Central substation & sector access spurs
+  { from: [-9.5, 8.2], to: [-9.5, -5.8], width: 2.0 },
+  { from: [-9.5, -5.8], to: [2, -5.8], width: 2.0 },
+  // Foothill service road to the Mountain Solar Collector Relay
+  {
+    from: [SOLAR_FARM_RELAY_POS[0], -46],
+    to: [SOLAR_FARM_RELAY_POS[0], SOLAR_FARM_RELAY_POS[2]],
+    width: 2.2,
+  },
 ];
 
 function Road({
@@ -108,7 +111,7 @@ function Road({
         {wireframe ? (
           <meshBasicMaterial color="#0b1120" />
         ) : (
-          <meshStandardMaterial map={roadTex} roughness={0.9} metalness={0.05} />
+          <meshStandardMaterial map={roadTex} roughness={0.84} metalness={0.03} />
         )}
       </mesh>
       {wireframe && (
@@ -129,87 +132,9 @@ function Road({
   );
 }
 
-const CONIFER_CLUSTERS: Array<[number, number, number]> = [
-  // North-west foothills buffer
-  [-36, -24, 1.15],
-  [-33, -22, 0.95],
-  [-38, -20, 1.0],
-  [-31, -25, 0.85],
-  // Between AlpTech & Isère north lawn
-  [-11, -23, 1.1],
-  [-9, -25, 0.9],
-  [11, -24, 1.05],
-  [14, -22, 0.9],
-  // North-east park corner
-  [35, -24, 1.2],
-  [37, -21, 0.95],
-  [33, -26, 0.85],
-  // West & East perimeter greens
-  [-36, 1, 1.05],
-  [-38, 4, 0.9],
-  [-35, 19, 1.1],
-  [-37, 22, 0.9],
-  [36, 2, 1.05],
-  [38, 5, 0.9],
-  [35, 19, 1.15],
-  [37, 22, 0.95],
-  // Central south park courtyard pockets (clear of buildings & substation)
-  [0, 15, 0.95],
-  [-2, 17.5, 0.8],
-  [2.2, 17, 0.9],
-  [-28, 17, 1.05],
-  [-30, 19, 0.85],
-  [28, 17, 1.0],
-  [30, 19, 0.85],
-];
-
-function AlpineConifers({
-  isCold,
-  wireframe,
-}: {
-  isCold: boolean;
-  wireframe: boolean;
-}) {
-  if (wireframe) return null;
-  const tipColor = isCold ? '#cbd5e1' : '#2a5942';
-  return (
-    <group>
-      {CONIFER_CLUSTERS.map(([tx, tz, scale], i) => (
-        <group key={i} position={[tx, 0, tz]} scale={scale}>
-          {/* Trunk */}
-          <mesh position={[0, 0.55, 0]} castShadow>
-            <cylinderGeometry args={[0.14, 0.2, 1.1, 6]} />
-            <meshStandardMaterial color="#4a3728" roughness={0.95} />
-          </mesh>
-          {/* 3 tiered alpine spruce cones */}
-          <mesh position={[0, 1.55, 0]} castShadow>
-            <coneGeometry args={[1.05, 1.7, 7]} />
-            <meshStandardMaterial color="#193c2d" roughness={0.9} flatShading />
-          </mesh>
-          <mesh position={[0, 2.45, 0]} castShadow>
-            <coneGeometry args={[0.82, 1.5, 7]} />
-            <meshStandardMaterial color="#214b38" roughness={0.9} flatShading />
-          </mesh>
-          <mesh position={[0, 3.25, 0]} castShadow>
-            <coneGeometry args={[0.56, 1.25, 7]} />
-            <meshStandardMaterial color={tipColor} roughness={0.85} flatShading />
-          </mesh>
-        </group>
-      ))}
-    </group>
-  );
-}
-
 const LAMP_POSITIONS: Array<[number, number]> = [
-  [-34, 6.4],
-  [-16, 6.4],
-  [-16, 10.0],
-  [12, 6.4],
-  [12, 10.0],
-  [34, 6.4],
-  [-34, -28.2],
-  [0, -28.2],
-  [34, -28.2],
+  [-56, 6.2], [-32, 6.2], [-15, 6.2], [12, 6.2], [33, 6.2], [56, 6.2],
+  [-34, -29.2], [0, -29.2], [34, -29.2], [-34, 24.2], [34, 24.2],
 ];
 
 function Streetlamps({
@@ -224,20 +149,20 @@ function Streetlamps({
     <group>
       {LAMP_POSITIONS.map(([lx, lz], i) => (
         <group key={i} position={[lx, 0, lz]}>
-          <mesh position={[0, 1.65, 0]} castShadow>
-            <cylinderGeometry args={[0.05, 0.07, 3.3, 6]} />
-            <meshStandardMaterial color="#334155" metalness={0.7} roughness={0.4} />
+          <mesh position={[0, 1.55, 0]} castShadow>
+            <cylinderGeometry args={[0.04, 0.06, 3.1, 6]} />
+            <meshStandardMaterial color="#94a3b8" metalness={0.65} roughness={0.35} />
           </mesh>
-          <mesh position={[0, 3.28, 0.22]}>
-            <boxGeometry args={[0.22, 0.08, 0.55]} />
-            <meshStandardMaterial color="#475569" metalness={0.6} />
+          <mesh position={[0, 3.08, 0.2]}>
+            <boxGeometry args={[0.2, 0.07, 0.5]} />
+            <meshStandardMaterial color="#cbd5e1" metalness={0.55} />
           </mesh>
-          <mesh position={[0, 3.23, 0.34]}>
-            <boxGeometry args={[0.18, 0.04, 0.3]} />
+          <mesh position={[0, 3.03, 0.3]}>
+            <boxGeometry args={[0.16, 0.035, 0.28]} />
             <meshStandardMaterial
-              color="#fef3c7"
+              color="#fef9c3"
               emissive="#fbbf24"
-              emissiveIntensity={dimDaylight ? 1.8 : 0.25}
+              emissiveIntensity={dimDaylight ? 1.2 : 0.08}
             />
           </mesh>
         </group>
@@ -249,9 +174,9 @@ function Streetlamps({
 function CloudLayer({ wireframe }: { wireframe: boolean }) {
   const planes = useMemo(
     () =>
-      Array.from({ length: 7 }, (_, i) => ({
-        pos: [-65 + i * 22, 46 + (i % 3) * 5, -48 + ((i * 37) % 85)] as [number, number, number],
-        size: [36 + (i % 3) * 12, 18 + (i % 2) * 8] as [number, number],
+      Array.from({ length: 8 }, (_, i) => ({
+        pos: [-85 + i * 26, 56 + (i % 3) * 5, -62 + ((i * 37) % 110)] as [number, number, number],
+        size: [42 + (i % 3) * 14, 22 + (i % 2) * 8] as [number, number],
         rot: i * 0.65,
       })),
     [],
@@ -262,7 +187,7 @@ function CloudLayer({ wireframe }: { wireframe: boolean }) {
         <mesh key={i} position={p.pos} rotation={[-Math.PI / 2, 0, p.rot]}>
           <planeGeometry args={p.size} />
           <meshBasicMaterial
-            color={wireframe ? '#94a3b8' : '#e2e8f0'}
+            color={wireframe ? '#94a3b8' : '#ffffff'}
             transparent
             opacity={wireframe ? 0.08 : 0.22}
             depthWrite={false}
@@ -274,7 +199,6 @@ function CloudLayer({ wireframe }: { wireframe: boolean }) {
   );
 }
 
-/** Amber/rose warning pulse ring during the midday unexpected-peak spike (slots 22..31). */
 function WarningRing({ slot }: { slot: number }) {
   const ref = useRef<unknown>(null);
   const pts = useMemo(() => {
@@ -297,15 +221,15 @@ function WarningRing({ slot }: { slot: number }) {
       ring.material.opacity = 0;
       return;
     }
-    ring.scale.setScalar(0.92 + 0.22 * Math.sin(t * 6));
-    ring.material.opacity = 0.5 + 0.5 * Math.sin(t * 6);
-    ring.material.color.setHex(Math.sin(t * 6) > 0 ? 0xf59e0b : 0xf43f5e);
+    ring.scale.setScalar(0.92 + 0.18 * Math.sin(t * 6));
+    ring.material.opacity = 0.5 + 0.45 * Math.sin(t * 6);
+    ring.material.color.setHex(Math.sin(t * 6) > 0 ? 0xf59e0b : 0xef4444);
   });
   return (
     <Line
       ref={ref as never}
       points={pts}
-      position={[0, 0.14, 2]}
+      position={[0, 0.16, 2]}
       color={C.amber}
       transparent
       opacity={0}
@@ -314,10 +238,6 @@ function WarningRing({ slot }: { slot: number }) {
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Camera fly-to controller                                            */
-/* ------------------------------------------------------------------ */
-
 interface CameraGoal {
   pos: THREE.Vector3;
   tgt: THREE.Vector3;
@@ -325,35 +245,39 @@ interface CameraGoal {
 
 function goalFor(preset: CameraPreset, focus: HqSiteSummary | null): CameraGoal {
   if (preset === 'top') {
-    return { pos: new THREE.Vector3(0, 96, 0.01), tgt: new THREE.Vector3(0, 0, 0) };
+    return { pos: new THREE.Vector3(4, 155, 0.01), tgt: new THREE.Vector3(4, 0, -16) };
   }
   if (preset === 'substation') {
-    return { pos: new THREE.Vector3(15, 11, 19), tgt: new THREE.Vector3(0, 2.2, 2) };
+    return { pos: new THREE.Vector3(20, 15, 25), tgt: new THREE.Vector3(0, 2, 2) };
   }
   if (preset === 'alpine') {
-    // Scenic angle looking across the solar-roofed tech park toward the Belledonne & Chartreuse Alps
-    return { pos: new THREE.Vector3(-38, 16, 36), tgt: new THREE.Vector3(18, 9, -24) };
+    return { pos: new THREE.Vector3(2, 27, 16), tgt: new THREE.Vector3(34, 9, -68) };
   }
   if (preset === 'focus' && focus) {
     const L = focus.layout;
     return {
-      pos: new THREE.Vector3(L.x + L.w + 15, L.h + 10, L.z + L.d + 15),
-      tgt: new THREE.Vector3(L.x, L.h * 0.55, L.z),
+      pos: new THREE.Vector3(L.x + L.w + 13, L.h + 8.5, L.z + L.d + 13),
+      tgt: new THREE.Vector3(L.x, L.h * 0.45, L.z),
     };
   }
-  return { pos: new THREE.Vector3(0, 34, 48), tgt: new THREE.Vector3(0, 4, -2) };
+  return { pos: new THREE.Vector3(4, 46, 76), tgt: new THREE.Vector3(6, 4, -12) };
 }
 
 function CameraController({
   preset,
   focus,
   flyingRef,
+  cameraNonce = 0,
+  navAction,
 }: {
   preset: CameraPreset;
   focus: HqSiteSummary | null;
   flyingRef: MutableRefObject<boolean>;
+  cameraNonce?: number;
+  navAction?: { type: NavActionType; nonce: number } | null;
 }) {
   const camera = useThree((s) => s.camera);
+  const gl = useThree((s) => s.gl);
   const controls = useThree((s) => s.controls) as unknown as {
     target: THREE.Vector3;
     update?: () => void;
@@ -366,26 +290,78 @@ function CameraController({
   const fw = focus?.layout.w ?? 0;
   const fd = focus?.layout.d ?? 0;
 
-  // Depend only on primitive preset & layout coordinates so live telemetry ticks do not hijack user orbit.
   const goal = useMemo(
     () => goalFor(preset, focus),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [preset, focusId, fx, fh, fz, fw, fd],
   );
+  const activeGoalRef = useRef<CameraGoal>(goal);
+  const mountedRef = useRef(false);
+  const lastNonceRef = useRef(cameraNonce);
+  const lastActionNonceRef = useRef(navAction?.nonce ?? -1);
 
   useEffect(() => {
-    flyingRef.current = true;
-  }, [goal, flyingRef]);
+    const stopFly = () => {
+      flyingRef.current = false;
+    };
+    const dom = gl.domElement;
+    dom.addEventListener('pointerdown', stopFly, { passive: true });
+    dom.addEventListener('wheel', stopFly, { passive: true });
+    return () => {
+      dom.removeEventListener('pointerdown', stopFly);
+      dom.removeEventListener('wheel', stopFly);
+    };
+  }, [gl, flyingRef]);
+
+  useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      activeGoalRef.current = goal;
+      // Honour deep-link presets like ?preset=alpine immediately on load.
+      if (preset !== 'overview') {
+        flyingRef.current = true;
+      }
+      lastNonceRef.current = cameraNonce;
+      return;
+    }
+    if (cameraNonce !== lastNonceRef.current) {
+      lastNonceRef.current = cameraNonce;
+      activeGoalRef.current = goal;
+      flyingRef.current = true;
+    }
+  }, [cameraNonce, goal, preset, flyingRef]);
+
+  useEffect(() => {
+    if (!navAction || navAction.nonce === lastActionNonceRef.current) return;
+    lastActionNonceRef.current = navAction.nonce;
+
+    if (navAction.type === 'reset-view') {
+      activeGoalRef.current = goalFor('overview', null);
+      flyingRef.current = true;
+      return;
+    }
+
+    if (!controls) return;
+    flyingRef.current = false;
+    const offset = camera.position.clone().sub(controls.target);
+    const factor = navAction.type === 'zoom-in' ? 0.78 : 1.28;
+    const nextDist = Math.max(3.5, Math.min(380, offset.length() * factor));
+    offset.setLength(nextDist);
+    camera.position.copy(controls.target).add(offset);
+    camera.position.y = Math.max(1.2, camera.position.y);
+    controls.update?.();
+  }, [navAction, camera, controls, flyingRef]);
 
   useFrame((_, delta) => {
     if (!controls || !flyingRef.current) return;
-    const k = 1 - Math.exp(-delta * 2.6);
-    camera.position.lerp(goal.pos, k);
-    controls.target.lerp(goal.tgt, k);
+    const targetGoal = activeGoalRef.current;
+    const k = 1 - Math.exp(-delta * 3.0);
+    camera.position.lerp(targetGoal.pos, k);
+    controls.target.lerp(targetGoal.tgt, k);
     controls.update?.();
     if (
-      camera.position.distanceTo(goal.pos) < 0.35 &&
-      controls.target.distanceTo(goal.tgt) < 0.2
+      camera.position.distanceTo(targetGoal.pos) < 0.35 &&
+      controls.target.distanceTo(targetGoal.tgt) < 0.2
     ) {
       flyingRef.current = false;
     }
@@ -393,16 +369,142 @@ function CameraController({
   return null;
 }
 
-/* ------------------------------------------------------------------ */
-/* Scene                                                               */
-/* ------------------------------------------------------------------ */
+function isEditableTarget(el: Element | null): boolean {
+  if (!el) return false;
+  const tag = el.tagName;
+  if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  return (el as HTMLElement).isContentEditable === true;
+}
+
+function KeyboardNavigation({ flyingRef }: { flyingRef: MutableRefObject<boolean> }) {
+  const camera = useThree((s) => s.camera);
+  const controls = useThree((s) => s.controls) as unknown as {
+    target: THREE.Vector3;
+    update?: () => void;
+  } | null;
+  const keysRef = useRef<Set<string>>(new Set());
+  const fwdRef = useRef(new THREE.Vector3());
+  const rightRef = useRef(new THREE.Vector3());
+  const moveRef = useRef(new THREE.Vector3());
+  const offsetRef = useRef(new THREE.Vector3());
+  const upVec = useMemo(() => new THREE.Vector3(0, 1, 0), []);
+
+  useEffect(() => {
+    const keys = keysRef.current;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (isEditableTarget(document.activeElement)) return;
+      const k = e.key.toLowerCase();
+      if (
+        k === 'w' ||
+        k === 'a' ||
+        k === 's' ||
+        k === 'd' ||
+        k === 'q' ||
+        k === 'e' ||
+        k === 'arrowup' ||
+        k === 'arrowdown' ||
+        k === 'arrowleft' ||
+        k === 'arrowright' ||
+        k === 'shift' ||
+        k === '=' ||
+        k === '+' ||
+        k === '-'
+      ) {
+        if (k.startsWith('arrow')) e.preventDefault();
+        keys.add(k);
+        flyingRef.current = false;
+      }
+    };
+    const onKeyUp = (e: KeyboardEvent) => {
+      keys.delete(e.key.toLowerCase());
+    };
+    const onBlur = () => {
+      keys.clear();
+    };
+    window.addEventListener('keydown', onKeyDown);
+    window.addEventListener('keyup', onKeyUp);
+    window.addEventListener('blur', onBlur);
+    return () => {
+      window.removeEventListener('keydown', onKeyDown);
+      window.removeEventListener('keyup', onKeyUp);
+      window.removeEventListener('blur', onBlur);
+    };
+  }, [flyingRef]);
+
+  useFrame((_, delta) => {
+    if (!controls || keysRef.current.size === 0) return;
+    const keys = keysRef.current;
+    const dt = Math.min(0.08, delta);
+    const dist = camera.position.distanceTo(controls.target);
+    const boost = keys.has('shift') ? 2.2 : 1.0;
+    const speed = Math.max(12, Math.min(95, dist * 0.72)) * boost * dt;
+
+    const fwd = fwdRef.current;
+    camera.getWorldDirection(fwd);
+    fwd.y = 0;
+    if (fwd.lengthSq() < 1e-6) fwd.set(0, 0, -1);
+    fwd.normalize();
+
+    const right = rightRef.current;
+    right.crossVectors(fwd, upVec).normalize();
+
+    const move = moveRef.current.set(0, 0, 0);
+    if (keys.has('w') || keys.has('arrowup')) move.addScaledVector(fwd, speed);
+    if (keys.has('s') || keys.has('arrowdown')) move.addScaledVector(fwd, -speed);
+    if (keys.has('d') || keys.has('arrowright')) move.addScaledVector(right, speed);
+    if (keys.has('a') || keys.has('arrowleft')) move.addScaledVector(right, -speed);
+    if (keys.has('e')) move.y += speed * 0.65;
+    if (keys.has('q')) move.y -= speed * 0.65;
+
+    let moved = false;
+    if (move.lengthSq() > 0) {
+      camera.position.add(move);
+      controls.target.add(move);
+
+      const clampedX = Math.max(-240, Math.min(240, controls.target.x));
+      const clampedZ = Math.max(-230, Math.min(220, controls.target.z));
+      const dx = clampedX - controls.target.x;
+      const dz = clampedZ - controls.target.z;
+      controls.target.x = clampedX;
+      controls.target.z = clampedZ;
+      camera.position.x += dx;
+      camera.position.z += dz;
+
+      controls.target.y = Math.max(0, Math.min(85, controls.target.y));
+      camera.position.y = Math.max(1.2, camera.position.y);
+      moved = true;
+    }
+
+    if (keys.has('=') || keys.has('+')) {
+      const off = offsetRef.current.copy(camera.position).sub(controls.target);
+      const nextLen = Math.max(3.5, off.length() * (1 - 1.25 * dt));
+      off.setLength(nextLen);
+      camera.position.copy(controls.target).add(off);
+      camera.position.y = Math.max(1.2, camera.position.y);
+      moved = true;
+    }
+    if (keys.has('-')) {
+      const off = offsetRef.current.copy(camera.position).sub(controls.target);
+      const nextLen = Math.min(380, off.length() * (1 + 1.25 * dt));
+      off.setLength(nextLen);
+      camera.position.copy(controls.target).add(off);
+      camera.position.y = Math.max(1.2, camera.position.y);
+      moved = true;
+    }
+
+    if (moved) {
+      controls.update?.();
+    }
+  });
+
+  return null;
+}
 
 function getSkySun(slot: number, scenario: ScenarioKey) {
   const dayT = Math.min(1, Math.max(0, slot / 55));
-  const elev = Math.sin(Math.PI * dayT) * 0.95 + 0.08;
-  // East (+X) sunrise -> South (+Z) midday -> West (-X) sunset so Alps catch crisp front-lit sun.
-  const az = 1.85 - 3.7 * dayT;
-  const r = 160;
+  const elev = Math.sin(Math.PI * dayT) * 0.85 + 0.26;
+  const az = 1.65 - 3.3 * dayT;
+  const r = 190;
   const daylight = Math.sin(Math.PI * dayT);
   const isCloudy = scenario === 'cloudy';
   const isCold = scenario === 'cold';
@@ -414,24 +516,24 @@ function getSkySun(slot: number, scenario: ScenarioKey) {
   ];
 
   const fogColor = isCloudy
-    ? '#94a3b8'
+    ? '#d6dce5'
     : isCold
-      ? '#c7dcf2'
-      : daylight < 0.28
-        ? '#c7b8c9'
-        : '#bfd6ea';
+      ? '#e2edf7'
+      : daylight < 0.25
+        ? '#e9d8db'
+        : '#dce8f4';
 
   return {
     position,
     daylight,
-    dimDaylight: daylight < 0.35 || isCloudy,
-    intensity: (isCloudy ? 0.55 : 1.2) * (0.35 + 1.05 * daylight),
-    color: isCold ? '#e0f2fe' : daylight < 0.25 ? '#fed7aa' : '#fff7ed',
-    hemi: (isCloudy ? 0.8 : 0.95) * (0.35 + 0.5 * daylight),
-    hemiSky: isCold ? '#bae6fd' : '#dbeafe',
+    dimDaylight: daylight < 0.3 || isCloudy,
+    intensity: (isCloudy ? 1.0 : 1.75) * (0.58 + 0.58 * daylight),
+    color: isCold ? '#f0f9ff' : daylight < 0.22 ? '#fdecd2' : '#fffdf8',
+    hemi: (isCloudy ? 0.95 : 1.15) * (0.6 + 0.4 * daylight),
+    hemiSky: isCold ? '#e0f2fe' : '#eaf3fc',
     fogColor,
-    fogNear: isCloudy ? 145 : 190,
-    fogFar: isCloudy ? 340 : 460,
+    fogNear: isCloudy ? 260 : 320,
+    fogFar: isCloudy ? 620 : 840,
   };
 }
 
@@ -440,6 +542,9 @@ function NeighborhoodScene({
   selectedSiteId,
   onSelectSite,
   cameraPreset,
+  cameraNonce = 0,
+  navMode = 'pan',
+  navAction,
   visualMode = 'realistic',
   room,
 }: GrenobleNeighborhoodProps) {
@@ -455,13 +560,17 @@ function NeighborhoodScene({
   );
 
   const activeRoom = room ?? data.room ?? 'gem-demo';
+  const totalSolarKw = data.sites.reduce(
+    (sum, s) => sum + (s.online ? s.currentSolarKw : 0),
+    0,
+  );
 
   return (
     <>
       {wireframe ? (
         <>
           <color attach="background" args={[C.void]} />
-          <fog attach="fog" args={[C.void, 130, 320]} />
+          <fog attach="fog" args={[C.void, 280, 680]} />
           <hemisphereLight args={['#38bdf8', '#090d16', 0.45]} />
           <ambientLight args={['#1e293b', 0.65]} />
           <directionalLight position={sun.position} intensity={0.7} color="#bae6fd" />
@@ -473,13 +582,40 @@ function NeighborhoodScene({
           <Sky
             distance={4500}
             sunPosition={sun.position}
-            turbidity={data.scenario === 'cloudy' ? 9 : isCold ? 2.5 : 4.5}
-            rayleigh={data.scenario === 'cloudy' ? 1.2 : 1.8}
-            mieCoefficient={data.scenario === 'cloudy' ? 0.012 : 0.004}
-            mieDirectionalG={0.82}
+            turbidity={data.scenario === 'cloudy' ? 8 : isCold ? 2.0 : 3.2}
+            rayleigh={data.scenario === 'cloudy' ? 1.0 : 1.35}
+            mieCoefficient={data.scenario === 'cloudy' ? 0.01 : 0.003}
+            mieDirectionalG={0.8}
           />
-          <hemisphereLight args={[sun.hemiSky, '#1e3128', sun.hemi]} />
-          <ambientLight args={['#cbd5e1', 0.35]} />
+          <Environment resolution={256} frames={1}>
+            <Lightformer
+              form="rect"
+              intensity={1.7}
+              color="#eef6ff"
+              scale={[150, 150, 1]}
+              position={[0, 80, 0]}
+              rotation={[Math.PI / 2, 0, 0]}
+            />
+            <Lightformer
+              form="circle"
+              intensity={2.2}
+              color="#fff9eb"
+              scale={[36, 36, 1]}
+              position={[65, 55, 75]}
+              target={[0, 0, 0]}
+            />
+            <Lightformer
+              form="rect"
+              intensity={0.9}
+              color="#d7dcd8"
+              scale={[160, 160, 1]}
+              position={[0, -30, 0]}
+              rotation={[-Math.PI / 2, 0, 0]}
+            />
+          </Environment>
+
+          <hemisphereLight args={[sun.hemiSky, '#d6dad4', sun.hemi]} />
+          <ambientLight args={['#f1f5f9', 0.42]} />
           <directionalLight
             position={sun.position}
             intensity={sun.intensity}
@@ -487,36 +623,40 @@ function NeighborhoodScene({
             castShadow
             shadow-mapSize-width={2048}
             shadow-mapSize-height={2048}
-            shadow-camera-left={-52}
-            shadow-camera-right={52}
-            shadow-camera-top={52}
-            shadow-camera-bottom={-52}
+            shadow-camera-left={-98}
+            shadow-camera-right={98}
+            shadow-camera-top={98}
+            shadow-camera-bottom={-98}
             shadow-camera-near={10}
-            shadow-camera-far={280}
+            shadow-camera-far={360}
             shadow-bias={-0.0004}
           />
         </>
       )}
 
-      {/* Ground surface */}
+      {/* Apple Maps DCE warm alabaster ground canvas */}
       <mesh
         key={wireframe ? 'ground-w' : 'ground-r'}
         rotation-x={-Math.PI / 2}
         position={[0, 0, 0]}
         receiveShadow={!wireframe}
       >
-        <planeGeometry args={[280, 280]} />
+        <planeGeometry args={[800, 800]} />
         {wireframe ? (
           <meshBasicMaterial color={C.void} />
         ) : (
-          <meshStandardMaterial color="#1e3128" roughness={0.96} metalness={0.02} />
+          <meshStandardMaterial
+            color={isCold ? '#e8eef4' : '#e6e8e4'}
+            roughness={0.94}
+            metalness={0.01}
+          />
         )}
       </mesh>
       {wireframe && (
-        <gridHelper args={[240, 120, '#334155', C.grid]} position={[0, 0.015, 0]} />
+        <gridHelper args={[320, 160, '#334155', C.grid]} position={[0, 0.015, 0]} />
       )}
 
-      {/* Tech-park boulevard network */}
+      {/* Expanded Apple Maps light-slate road boulevards */}
       {ROAD_SEGMENTS.map((seg, i) => (
         <Road
           key={i}
@@ -528,34 +668,46 @@ function NeighborhoodScene({
         />
       ))}
 
-      {/* 3D Grenoble Alps Valley Panorama */}
+      {/* Urban Cartographic Layer: Isere River, bridges, roundabout, crosswalks, parks, Tram B, organic trees */}
+      <GrenobleUrbanDetails
+        visualMode={visualMode}
+        isCold={isCold}
+        serverOnline={data.serverOnline}
+      />
+
+      {/* High-Resolution Grenoble Alps Valley Panorama */}
       <AlpineMountains mode={visualMode} scenario={data.scenario} />
 
-      {/* Campus landscaping & streetlamps (realistic mode) */}
-      <AlpineConifers isCold={isCold} wireframe={wireframe} />
+      {/* Terraced Mountain-Side Solar Power Generation Farm + Collector Relay */}
+      <MountainSolarFarm
+        visualMode={visualMode}
+        totalSolarKw={totalSolarKw}
+        serverOnline={data.serverOnline}
+      />
+
+      {/* 18 Surrounding Grenoble District European Architectural Buildings */}
+      <ContextBuildings visualMode={visualMode} online={data.serverOnline} />
+
       <Streetlamps dimDaylight={sun.dimDaylight} wireframe={wireframe} />
 
-      {/* Weather & grid anomaly atmosphere */}
       {data.scenario === 'cloudy' && <CloudLayer wireframe={wireframe} />}
       {data.scenario === 'unexpected' && <WarningRing slot={data.clock.slot} />}
 
-      {/* 5 Grenoble tech campus sites + solar carports */}
+      {/* 5 Interactive Grenoble Campuses (2-floor parked EV podium + rooftop solar) */}
       {data.sites.map((site) => (
-        <group key={site.id}>
-          <BuildingMesh
-            site={site}
-            selected={site.id === selectedSiteId}
-            scenario={data.scenario}
-            clockSlot={data.clock.slot}
-            visualMode={visualMode}
-            room={activeRoom}
-            onSelect={onSelectSite}
-          />
-          <SolarCarport site={site} visualMode={visualMode} />
-        </group>
+        <BuildingMesh
+          key={site.id}
+          site={site}
+          selected={site.id === selectedSiteId}
+          scenario={data.scenario}
+          clockSlot={data.clock.slot}
+          visualMode={visualMode}
+          room={activeRoom}
+          onSelect={onSelectSite}
+        />
       ))}
 
-      {/* MV substation + animated power conduits */}
+      {/* Central Substation, Sector Relays & Glowing Green Neon Power Blobs */}
       <SubstationConduits
         sites={data.sites}
         substation={data.substation}
@@ -563,14 +715,48 @@ function NeighborhoodScene({
         visualMode={visualMode}
       />
 
-      <CameraController preset={cameraPreset} focus={selected} flyingRef={flyingRef} />
+      <CameraController
+        preset={cameraPreset}
+        focus={selected}
+        flyingRef={flyingRef}
+        cameraNonce={cameraNonce}
+        navAction={navAction}
+      />
+      <KeyboardNavigation flyingRef={flyingRef} />
       <OrbitControls
         makeDefault
         enableDamping
-        dampingFactor={0.08}
-        maxPolarAngle={Math.PI * 0.49}
-        minDistance={8}
-        maxDistance={220}
+        dampingFactor={0.075}
+        enablePan
+        enableRotate
+        enableZoom
+        screenSpacePanning={false}
+        zoomToCursor
+        minDistance={3.5}
+        maxDistance={380}
+        minPolarAngle={0.02}
+        maxPolarAngle={Math.PI * 0.495}
+        panSpeed={1.5}
+        zoomSpeed={1.3}
+        rotateSpeed={0.85}
+        mouseButtons={
+          navMode === 'pan'
+            ? {
+                LEFT: THREE.MOUSE.PAN,
+                MIDDLE: THREE.MOUSE.DOLLY,
+                RIGHT: THREE.MOUSE.ROTATE,
+              }
+            : {
+                LEFT: THREE.MOUSE.ROTATE,
+                MIDDLE: THREE.MOUSE.DOLLY,
+                RIGHT: THREE.MOUSE.PAN,
+              }
+        }
+        touches={
+          navMode === 'pan'
+            ? { ONE: THREE.TOUCH.PAN, TWO: THREE.TOUCH.DOLLY_ROTATE }
+            : { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN }
+        }
         onStart={() => {
           flyingRef.current = false;
         }}
@@ -579,19 +765,15 @@ function NeighborhoodScene({
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Public component                                                    */
-/* ------------------------------------------------------------------ */
-
 export function GrenobleNeighborhood(props: GrenobleNeighborhoodProps) {
   return (
     <SceneErrorBoundary
       fallback={
         <div className="flex h-full min-h-[520px] items-center justify-center bg-inset p-6 text-center">
           <div>
-            <div className="label text-grid">⚠ 3D viewport unavailable</div>
-            <p className="mono mt-2 text-[11px] uppercase tracking-[0.08em] text-ink-dim">
-              WebGL context could not be created · live KPIs, roster and event feed remain active
+            <div className="label text-grid">3D viewport unavailable</div>
+            <p className="mt-2 text-xs text-ink-dim">
+              WebGL context could not be created · live telemetry, roster and event feed remain active
             </p>
           </div>
         </div>
@@ -600,7 +782,7 @@ export function GrenobleNeighborhood(props: GrenobleNeighborhoodProps) {
       <div className="relative z-0 h-full w-full">
         <Canvas
           shadows
-          camera={{ position: [0, 34, 48], fov: 44 }}
+          camera={{ position: [4, 46, 76], fov: 44, far: 1800 }}
           dpr={[1, 2]}
           gl={{
             antialias: true,

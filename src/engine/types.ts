@@ -148,6 +148,8 @@ export interface SiteControlState {
   failSafe: boolean;
   /** Whether this building's electrical supply & routing is energized. */
   online: boolean;
+  /** Whether this building sells surplus solar & V2G power back to the grid. */
+  sellToGrid: boolean;
   lastAction: string | null;
   lastActionAt: string | null;
 }
@@ -174,6 +176,7 @@ export interface CurrentSlice {
   evKw: number;
   solarKw: number;
   gridKw: number;
+  exportKw: number;
   activeBays: number;
   totalBays: number;
   breaching: boolean;
@@ -185,6 +188,9 @@ export interface SiteSimulation {
   solar: number[];
   ev: number[];
   grid: number[];
+  exportKw: number[];
+  dailyExportKwh: number;
+  dailyExportRevenueEur: number;
   baselineEv: number[];
   baselineGrid: number[];
   optimizedEv: number[];
@@ -229,6 +235,8 @@ export interface HqSiteSummary {
   layout: SiteLayout;
   /** False when the building's supply & routing is isolated from the launcher. */
   online: boolean;
+  /** True when the building is selling surplus power back to the MV grid. */
+  sellToGrid: boolean;
   /** Unacknowledged agentic notifications still waiting on this building. */
   unreadNotifications: number;
   aiEnabled: boolean;
@@ -240,6 +248,7 @@ export interface HqSiteSummary {
   evsConnected: number;
   totalBays: number;
   currentKw: number;
+  currentExportKw: number;
   currentEvKw: number;
   currentSolarKw: number;
   currentBuildingKw: number;
@@ -255,6 +264,7 @@ export interface HqSiteSummary {
   /** True when the active plan's daily peak exceeds the site cap. */
   breaching: boolean;
   dailySavingEur: number;
+  dailyExportRevenueEur: number;
   feasible: boolean;
 }
 
@@ -292,11 +302,13 @@ export interface HqTotals {
   readyPct: number;
   readyCount: number;
   currentKw: number;
+  totalExportKw: number;
   baselinePeakKw: number;
   optimizedPeakKw: number;
   solarKwh: number;
   solarSelfPct: number;
   dailySavingEur: number;
+  dailyExportRevenueEur: number;
   breaching: boolean;
 }
 
@@ -377,6 +389,7 @@ export type ActionPayload =
   | { type: 'SITE_APPROVE'; siteId: SiteId }
   | { type: 'SITE_REJECT'; siteId: SiteId }
   | { type: 'SITE_SET_ONLINE'; siteId: SiteId; enabled: boolean }
+  | { type: 'SITE_SET_SELL_TO_GRID'; siteId: SiteId; enabled: boolean }
   | {
       type: 'SITE_CONSTRAINTS';
       siteId: SiteId;

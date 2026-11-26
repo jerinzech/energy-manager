@@ -80,7 +80,11 @@ function normalizeRoomState(value: unknown): RoomState | null {
   const sites = { ...value.sites } as Record<SiteId, SiteControlState>;
   for (const site of SITES) {
     const control = sites[site.id];
-    sites[site.id] = { ...control, online: control.online ?? true };
+    sites[site.id] = {
+      ...control,
+      online: control.online ?? true,
+      sellToGrid: control.sellToGrid ?? false,
+    };
   }
   return {
     ...value,

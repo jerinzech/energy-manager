@@ -13,7 +13,7 @@ import type {
 import { CONTROL_SITE_ID, MV_SUBSTATION, PILOT_SITE_ID, SCENARIOS, SITES, SITE_BY_ID } from './sites';
 import { buildSiteProfile } from './profiles';
 import { planBaseline, planFailsafe, planOptimized } from './optimizer';
-import { N, clamp, round1 } from './time';
+import { DT, N, clamp, round1 } from './time';
 
 export { N, DT, slotToTime, timeToSlot } from './time';
 
@@ -53,10 +53,21 @@ export function buildSiteSimulation(
     return Math.min(usableBays, count);
   });
 
-  const capBreachAfter = active.grid.some((value) => value > site.capKw + 0.01);
+  const exportEnabled = energized && control.sellToGrid === true && !control.failSafe;
+  const exportKw = Array.from({ length: N }, (_, t) => {
+    if (!exportEnabled) return 0;
+    const v2gBase = t >= 16 && t <= 40 ? site.evsConnected * 1.15 : site.evsConnected * 0.4;
+    return round1(profile.solar[t] * 0.45 + v2gBase);
+  });
+  const netGrid = active.grid.map((value, i) => round1(Math.max(0, value - exportKw[i])));
+  const netPeakKw = exportEnabled ? Math.round(Math.max(...netGrid)) : active.peakKw;
+  const dailyExportKwh = round1(exportKw.reduce((sum, v) => sum + v * DT, 0));
+  const dailyExportRevenueEur = round1(dailyExportKwh * 0.18);
+
+  const capBreachAfter = netGrid.some((value) => value > site.capKw + 0.01);
   const socShortfallAfter = active.sessions.filter((session) => !session.ready).length;
   const peakReductionPct = baseline.peakKw > 0
-    ? Math.round(((baseline.peakKw - active.peakKw) / baseline.peakKw) * 100)
+    ? Math.round(((baseline.peakKw - netPeakKw) / baseline.peakKw) * 100)
     : 0;
   const solarSelfPct = profile.solarKwh > 0
     ? Math.round((active.solarUsedKwh / profile.solarKwh) * 100)
@@ -69,10 +80,12 @@ export function buildSiteSimulation(
     ? 0
     : Math.max(0, Math.round((baseline.peakKw - active.peakKw) * 0.9));
   const energySavingEur = active.mode === 'baseline' ? 0 : Math.round(shiftedPct * 0.4);
-  const dailySavingEur = peakSavingEur + energySavingEur;
+  const dailySavingEur = round1(peakSavingEur + energySavingEur + dailyExportRevenueEur);
   const co2SavedKg = Math.round(dailySavingEur * 0.12);
   const baselineCostEur = round1(baseline.deliveredKwh * 0.22 + baseline.peakKw * 0.35);
-  const optimizedCostEur = round1(active.deliveredKwh * 0.18 + active.peakKw * 0.25);
+  const optimizedCostEur = round1(
+    Math.max(0, active.deliveredKwh * 0.18 + netPeakKw * 0.25 - dailyExportRevenueEur),
+  );
 
   return {
     slots: Array.from({ length: N }, (_, i) => {
@@ -82,7 +95,10 @@ export function buildSiteSimulation(
     building: profile.building.map(round1),
     solar: profile.solar.map(round1),
     ev: active.ev.map(round1),
-    grid: active.grid.map(round1),
+    grid: netGrid,
+    exportKw,
+    dailyExportKwh,
+    dailyExportRevenueEur,
     baselineEv: baseline.ev.map(round1),
     baselineGrid: baseline.grid.map(round1),
     optimizedEv: optimized.ev.map(round1),
@@ -90,7 +106,7 @@ export function buildSiteSimulation(
     activeChargers,
     usableBays,
     vehicles: active.sessions,
-    peakKw: active.peakKw,
+    peakKw: netPeakKw,
     baselinePeakKw: baseline.peakKw,
     optimizedPeakKw: optimized.peakKw,
     baselineReadyPct: baseline.readyPct,
@@ -98,7 +114,7 @@ export function buildSiteSimulation(
     capKw: site.capKw,
     // `breaching` describes the active plan's daily peak; `current.breaching`
     // below describes only the active clock slot.
-    breaching: active.peakKw > site.capKw + 0.01,
+    breaching: netPeakKw > site.capKw + 0.01,
     peakReductionPct,
     solarKwh: profile.solarKwh,
     solarSelfPct,
@@ -120,10 +136,11 @@ export function buildSiteSimulation(
       buildingKw: energized ? round1(profile.building[slot]) : 0,
       evKw: energized ? round1(active.ev[slot]) : 0,
       solarKw: energized ? round1(profile.solar[slot]) : 0,
-      gridKw: energized ? round1(active.grid[slot]) : 0,
+      gridKw: energized ? round1(netGrid[slot]) : 0,
+      exportKw: energized ? round1(exportKw[slot]) : 0,
       activeBays: energized ? activeChargers[slot] : 0,
       totalBays: site.totalBays,
-      breaching: energized ? active.grid[slot] > site.capKw + 0.01 : false,
+      breaching: energized ? netGrid[slot] > site.capKw + 0.01 : false,
     },
     economics: {
       dailySavingEur,
@@ -207,6 +224,9 @@ export function buildHqSnapshot(state: RoomState): HqSnapshot {
   const currentKw = round1(
     simulations.reduce((sum, entry) => sum + (entry.online ? entry.sim.current.gridKw : 0), 0),
   );
+  const totalExportKw = round1(
+    simulations.reduce((sum, entry) => sum + (entry.online ? entry.sim.current.exportKw : 0), 0),
+  );
   const totalEvs = simulations.reduce((sum, entry) => sum + entry.site.evsConnected, 0);
   const totalBays = simulations.reduce((sum, entry) => sum + entry.site.totalBays, 0);
   const readyCount = simulations.reduce((sum, entry) => sum + entry.sim.readyCount, 0);
@@ -218,6 +238,12 @@ export function buildHqSnapshot(state: RoomState): HqSnapshot {
   const dailySavingEur = round1(
     simulations.reduce((sum, entry) => sum + (entry.online ? entry.sim.dailySavingEur : 0), 0),
   );
+  const dailyExportRevenueEur = round1(
+    simulations.reduce(
+      (sum, entry) => sum + (entry.online ? entry.sim.dailyExportRevenueEur : 0),
+      0,
+    ),
+  );
 
   const sites: HqSiteSummary[] = simulations.map(({ site, sim, online }) => ({
     id: site.id,
@@ -226,6 +252,7 @@ export function buildHqSnapshot(state: RoomState): HqSnapshot {
     isControl: site.isControl,
     layout: site.layout,
     online,
+    sellToGrid: online && state.sites[site.id].sellToGrid === true,
     unreadNotifications: state.notifications.filter(
       (entry) => entry.siteId === site.id && !entry.acknowledged,
     ).length,
@@ -238,6 +265,7 @@ export function buildHqSnapshot(state: RoomState): HqSnapshot {
     evsConnected: site.evsConnected,
     totalBays: site.totalBays,
     currentKw: online ? sim.current.gridKw : 0,
+    currentExportKw: online ? sim.current.exportKw : 0,
     currentEvKw: online ? sim.current.evKw : 0,
     currentSolarKw: online ? sim.current.solarKw : 0,
     currentBuildingKw: online ? sim.current.buildingKw : 0,
@@ -252,6 +280,7 @@ export function buildHqSnapshot(state: RoomState): HqSnapshot {
     solarSelfPct: sim.solarSelfPct,
     breaching: online ? sim.breaching : false,
     dailySavingEur: online ? sim.dailySavingEur : 0,
+    dailyExportRevenueEur: online ? sim.dailyExportRevenueEur : 0,
     feasible: sim.feasible,
   }));
 
@@ -288,11 +317,13 @@ export function buildHqSnapshot(state: RoomState): HqSnapshot {
       readyPct: Math.round((readyCount / Math.max(1, totalEvs)) * 100),
       readyCount,
       currentKw,
+      totalExportKw,
       baselinePeakKw,
       optimizedPeakKw,
       solarKwh: round1(totalSolarKwh),
       solarSelfPct: totalSolarKwh > 0 ? Math.round(weightedSolarSelf / totalSolarKwh) : 0,
       dailySavingEur,
+      dailyExportRevenueEur,
       breaching:
         currentKw > MV_SUBSTATION.capKw ||
         simulations.some((entry) => entry.online && entry.sim.breaching),

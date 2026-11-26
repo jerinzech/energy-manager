@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Activity,
-  AlertTriangle,
+  AlertCircle,
   ArrowRight,
   Check,
   Copy,
@@ -36,8 +36,8 @@ function shortCampusName(name: string): string {
   return name.split(' ')[0];
 }
 
-/** Braun-inspired tactile pill toggle switch for Swiss daylight UI. */
-function BraunToggle({
+/** Tactile iOS/Tesla pill toggle switch. */
+function PillToggle({
   on,
   onClick,
   disabled,
@@ -56,15 +56,13 @@ function BraunToggle({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full border transition-colors duration-150 ${
-        on
-          ? 'border-[#0f766e] bg-[#0f766e]'
-          : 'border-[#cfccc3] bg-[#e5e3dc]'
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-150 ${
+        on ? 'bg-[#10b981]' : 'bg-[#d1d5db]'
       } ${disabled ? 'cursor-not-allowed opacity-45' : 'cursor-pointer'}`}
     >
       <span
-        className={`inline-block h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-150 ${
-          on ? 'translate-x-[22px]' : 'translate-x-[3px]'
+        className={`inline-block h-5 w-5 rounded-full bg-white shadow transition-transform duration-150 ${
+          on ? 'translate-x-[22px]' : 'translate-x-[2px]'
         }`}
       />
     </button>
@@ -94,37 +92,31 @@ function CampusLoadTooltip({
   if (!item) return null;
 
   return (
-    <div className="min-w-[180px] rounded-lg border border-[#d6d3cb] bg-white px-3 py-2 text-xs text-[#141413] shadow-lg">
-      <div className="mb-1.5 flex items-center justify-between gap-2 border-b border-[#e5e3dc] pb-1">
-        <span className="font-semibold text-[#141413]">{item.name}</span>
+    <div className="min-w-[185px] rounded-xl border border-black/[0.08] bg-white px-3.5 py-2.5 text-xs text-[#111827] shadow-lg">
+      <div className="mb-1.5 flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
+        <span className="font-semibold text-[#111827]">{item.name}</span>
         <span
-          className={`rounded-full px-1.5 py-0.5 font-mono text-[10px] font-medium ${
+          className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
             !item.online
-              ? 'bg-[#efeee9] text-[#57564f]'
+              ? 'bg-slate-100 text-slate-500'
               : item.breaching
-                ? 'bg-[#fef2f2] text-[#dc2626]'
-                : 'bg-[#f0fdfa] text-[#0f766e]'
+                ? 'bg-red-50 text-red-600'
+                : 'bg-emerald-50 text-emerald-600'
           }`}
         >
-          {!item.online ? 'Off' : item.breaching ? 'Breach' : `${item.pct}%`}
+          {!item.online ? 'Off' : item.breaching ? 'Over Limit' : `${item.pct}%`}
         </span>
       </div>
-      <div className="space-y-0.5 font-mono text-[11px] tabular-nums">
+      <div className="space-y-1 text-[11.5px] tabular-nums">
         <div className="flex items-center justify-between gap-4">
-          <span className="text-[#57564f]">Live draw</span>
-          <span
-            className={
-              item.breaching
-                ? 'font-semibold text-[#dc2626]'
-                : 'font-semibold text-[#0f766e]'
-            }
-          >
+          <span className="text-[#6b7280]">Current load</span>
+          <span className={item.breaching ? 'font-semibold text-red-600' : 'font-semibold text-emerald-600'}>
             {fmt(item.currentKw)} kW
           </span>
         </div>
         <div className="flex items-center justify-between gap-4">
-          <span className="text-[#57564f]">Contract cap</span>
-          <span className="font-medium text-[#141413]">{fmt(item.capKw)} kW</span>
+          <span className="text-[#6b7280]">Site limit</span>
+          <span className="font-medium text-[#111827]">{fmt(item.capKw)} kW</span>
         </div>
       </div>
     </div>
@@ -174,7 +166,7 @@ export default function LauncherPage() {
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Clipboard unavailable — room input in sidebar still shows the active room.
+      // Clipboard unavailable in restricted contexts.
     }
   };
 
@@ -210,7 +202,7 @@ export default function LauncherPage() {
       source: a.agentName,
       isAgent: true,
       campus: a.siteId ?? 'HQ',
-      decision: `${a.title} — ${a.message}${a.requiresApproval ? ' · Approval requested' : ''}`,
+      decision: `${a.title} — ${a.message}${a.requiresApproval ? ' · Ready for review' : ''}`,
     }));
     const auditItems = data.auditLog.map((a) => ({
       key: `audit-${a.id}`,
@@ -222,7 +214,7 @@ export default function LauncherPage() {
     }));
     return [...agentItems, ...auditItems]
       .sort((x, y) => String(y.at ?? '').localeCompare(String(x.at ?? '')))
-      .slice(0, 25);
+      .slice(0, 20);
   }, [data.agentFeed, data.auditLog]);
 
   return (
@@ -233,90 +225,79 @@ export default function LauncherPage() {
       onDispatch={dispatch}
       activeNav="launcher"
       title="Grid Switchboard"
-      subtitle="Grenoble IT Sector · 5 campuses · 1,650 kW MV feeder"
+      subtitle="Grenoble IT Campus · 5 buildings connected to one 1,650 kW neighborhood feeder"
       onOpenDemoGuide={() => setDemoOpen(true)}
       headerActions={
-        <>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={copyShareLink}
-          >
-            {copied ? (
-              <Check className="h-3.5 w-3.5 text-[#0f766e]" />
-            ) : (
-              <Copy className="h-3.5 w-3.5 text-[#57564f]" />
-            )}
-            {copied ? 'Link Copied' : 'Copy Share Link'}
-          </button>
-          <span className="stamp">Simulated</span>
-        </>
+        <button
+          type="button"
+          className="btn btn-secondary"
+          onClick={copyShareLink}
+        >
+          {copied ? (
+            <Check className="h-3.5 w-3.5 text-[#10b981]" />
+          ) : (
+            <Copy className="h-3.5 w-3.5 text-[#6b7280]" />
+          )}
+          {copied ? 'Link Copied' : 'Share Room'}
+        </button>
       }
     >
-      <div className="space-y-5">
-        {/* (a) Unified Telemetry Strip */}
-        <section className="card overflow-hidden !p-0">
-          <div className="grid grid-cols-1 divide-y divide-[#e5e3dc] sm:grid-cols-2 sm:divide-y-0 lg:grid-cols-4 lg:divide-x">
-            {/* Substation Draw */}
-            <div className="p-5 sm:border-b sm:border-r sm:border-[#e5e3dc] lg:border-b-0 lg:border-r-0">
-              <div className="label">Substation Draw</div>
-              <div className="mt-1.5 flex items-baseline gap-1.5">
+      <div className="space-y-6">
+        {/* Hero Grid Status & Master Controls */}
+        <section className="card">
+          <div className="grid gap-6 lg:grid-cols-12 lg:items-center">
+            <div className="lg:col-span-5">
+              <div className="text-xs font-medium text-[#6b7280]">
+                Neighborhood Grid Load
+              </div>
+              <div className="mt-1 flex items-baseline gap-2">
                 <span
-                  className={`metric text-2xl ${
-                    data.substation.breaching ? 'text-[#dc2626]' : 'text-[#141413]'
+                  className={`metric text-3xl ${
+                    data.substation.breaching ? 'text-[#ef4444]' : 'text-[#111827]'
                   }`}
                 >
-                  {fmt(data.substation.currentKw)}
+                  {fmt(data.substation.currentKw)} kW
                 </span>
-                <span className="font-mono text-xs text-[#86847b]">
-                  / {fmt(data.substation.capKw)} kW
+                <span className="text-sm text-[#6b7280] tabular-nums">
+                  of {fmt(data.substation.capKw)} kW limit
                 </span>
               </div>
-              <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-[#efeee9]">
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-slate-100">
                 <div
                   className="h-full rounded-full transition-all duration-300"
                   style={{
                     width: `${subPct}%`,
-                    backgroundColor: data.substation.breaching ? '#dc2626' : '#0f766e',
+                    backgroundColor: data.substation.breaching ? '#ef4444' : '#10b981',
                   }}
                 />
               </div>
-            </div>
-
-            {/* Energized Campuses */}
-            <div className="p-5 sm:border-b sm:border-[#e5e3dc] lg:border-b-0">
-              <div className="label">Energized Campuses</div>
-              <div className="mt-1.5 flex items-baseline gap-1.5">
-                <span className="metric text-2xl text-[#141413]">
-                  {onlineCount}
+              <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs text-[#6b7280]">
+                <span>
+                  {onlineCount} of {data.sites.length} buildings energized ·{' '}
+                  {data.serverOnline ? 'Streaming live telemetry' : 'Server paused in standby'}
                 </span>
-                <span className="font-mono text-xs text-[#86847b]">
-                  / {data.sites.length} online
-                </span>
-              </div>
-              <div className="mt-2.5 text-[11.5px] text-[#57564f]">
-                {data.serverOnline
-                  ? 'MV feeder distributing normally'
-                  : 'Feeder parked — standby mode'}
+                {data.totals.totalExportKw > 0 ? (
+                  <span className="rounded-full bg-teal-50 px-2.5 py-0.5 font-medium text-teal-700 tabular-nums">
+                    Selling +{fmt(data.totals.totalExportKw)} kW to grid · +€
+                    {fmt(data.totals.dailyExportRevenueEur)}/day
+                  </span>
+                ) : null}
               </div>
             </div>
 
-            {/* Backend Data Server */}
-            <div className="flex flex-col justify-between p-5 sm:border-r sm:border-[#e5e3dc] lg:border-r-0">
-              <div className="flex items-start justify-between gap-3">
+            <div className="grid gap-3 sm:grid-cols-2 lg:col-span-7">
+              <div className="flex items-center justify-between gap-4 rounded-xl bg-[#f8fafc] px-4 py-3.5">
                 <div>
-                  <div className="label">Backend Data Server</div>
-                  <div
-                    className={`mt-1.5 text-sm font-semibold ${
-                      data.serverOnline ? 'text-[#0f766e]' : 'text-[#b45309]'
-                    }`}
-                  >
-                    {data.serverOnline ? 'Online' : 'Standby'}
+                  <div className="text-sm font-semibold text-[#111827]">
+                    Data Server
+                  </div>
+                  <div className="mt-0.5 text-xs text-[#6b7280]">
+                    {data.serverOnline ? 'Online · live simulation' : 'Paused in standby'}
                   </div>
                 </div>
-                <BraunToggle
+                <PillToggle
                   on={data.serverOnline}
-                  label="Backend data server Online or Standby"
+                  label="Data server Online or Standby"
                   onClick={() =>
                     void dispatch({
                       type: 'SET_SERVER_ONLINE',
@@ -325,120 +306,100 @@ export default function LauncherPage() {
                   }
                 />
               </div>
-              <div className="mt-2 text-[11.5px] text-[#57564f]">
-                {data.serverOnline
-                  ? 'Telemetry & clock streaming'
-                  : 'Live telemetry paused'}
-              </div>
-            </div>
 
-            {/* Agentic Routing */}
-            <div className="flex flex-col justify-between p-5">
-              <div className="flex items-start justify-between gap-3">
+              <div className="flex items-center justify-between gap-4 rounded-xl bg-[#f8fafc] px-4 py-3.5">
                 <div>
-                  <div className="label">Agentic Routing</div>
-                  <div
-                    className={`mt-1.5 text-sm font-semibold ${
-                      data.agenticRouting ? 'text-[#0f766e]' : 'text-[#57564f]'
-                    }`}
-                  >
-                    {data.agenticRouting ? 'Armed' : 'Paused'}
+                  <div className="text-sm font-semibold text-[#111827]">
+                    Auto Routing Agents
+                  </div>
+                  <div className="mt-0.5 text-xs text-[#6b7280]">
+                    {data.agenticRouting ? 'Active across campuses' : 'Manual control'}
                   </div>
                 </div>
-                <BraunToggle
-                  on={data.agenticRouting}
-                  label="Agentic routing Armed or Paused"
-                  onClick={() =>
-                    void dispatch({
-                      type: 'SET_AGENTIC_ROUTING',
-                      enabled: !data.agenticRouting,
-                    })
-                  }
-                />
-              </div>
-              <div className="mt-2.5">
-                <button
-                  type="button"
-                  className="btn btn-secondary !min-h-0 !px-2.5 !py-1 !text-[11.5px]"
-                  onClick={() => void dispatch({ type: 'RUN_AGENT_CYCLE' })}
-                >
-                  <Activity className="h-3.5 w-3.5 text-[#0f766e]" />
-                  Run Cycle
-                </button>
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    className="btn btn-secondary !min-h-0 !rounded-lg !px-2.5 !py-1.5 text-xs"
+                    onClick={() => void dispatch({ type: 'RUN_AGENT_CYCLE' })}
+                  >
+                    <Activity className="h-3.5 w-3.5 text-[#10b981]" />
+                    Run Cycle
+                  </button>
+                  <PillToggle
+                    on={data.agenticRouting}
+                    label="Auto routing agents On or Off"
+                    onClick={() =>
+                      void dispatch({
+                        type: 'SET_AGENTIC_ROUTING',
+                        enabled: !data.agenticRouting,
+                      })
+                    }
+                  />
+                </div>
               </div>
             </div>
           </div>
         </section>
 
-        {/* (b) Asymmetric 2/3 + 1/3 row */}
-        <section className="grid gap-5 lg:grid-cols-3">
-          {/* Left 2/3: Campus Power Allocation */}
-          <div className="card min-w-0 lg:col-span-2">
+        {/* Overview Row: Power by Building + 3D Map Card */}
+        <section className="grid gap-6 lg:grid-cols-12">
+          <div className="card min-w-0 lg:col-span-8">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="section-title">Campus Power Allocation</h2>
-              <div className="flex items-center gap-3 text-[11px] font-medium text-[#57564f]">
+              <h2 className="section-title">Power by Building</h2>
+              <div className="flex items-center gap-4 text-xs text-[#6b7280]">
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-[2px] bg-[#0f766e]" />
-                  Live Draw
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#10b981]" />
+                  Within Limit
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-[2px] bg-[#dc2626]" />
-                  Breach
+                  <span className="h-2.5 w-2.5 rounded-full bg-[#ef4444]" />
+                  Over Limit
                 </span>
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="h-2.5 w-2.5 rounded-[2px] bg-[#e5e3dc]" />
-                  Contract Cap
+                  <span className="h-2.5 w-2.5 rounded-full bg-slate-200" />
+                  Capacity
                 </span>
               </div>
             </div>
 
-            <div className="mt-4 w-full" style={{ height: 190 }}>
-              <ResponsiveContainer width="100%" height={190}>
+            <div className="mt-4 w-full" style={{ height: 210 }}>
+              <ResponsiveContainer width="100%" height={210}>
                 <BarChart
                   data={campusBars}
-                  margin={{ top: 6, right: 8, left: -12, bottom: 0 }}
-                  barGap={4}
+                  margin={{ top: 8, right: 8, left: -12, bottom: 0 }}
+                  barGap={6}
                   barCategoryGap="24%"
                 >
                   <CartesianGrid
-                    stroke="#eceae4"
-                    strokeDasharray="3 3"
+                    stroke="#f1f5f9"
                     vertical={false}
                   />
                   <XAxis
                     dataKey="shortName"
-                    tick={{
-                      fill: '#86847b',
-                      fontSize: 11,
-                      fontFamily: 'IBM Plex Mono, ui-monospace, monospace',
-                    }}
-                    axisLine={{ stroke: '#e5e3dc' }}
+                    tick={{ fill: '#6b7280', fontSize: 12 }}
+                    axisLine={false}
                     tickLine={false}
                   />
                   <YAxis
-                    tick={{
-                      fill: '#86847b',
-                      fontSize: 11,
-                      fontFamily: 'IBM Plex Mono, ui-monospace, monospace',
-                    }}
+                    tick={{ fill: '#6b7280', fontSize: 11.5 }}
                     axisLine={false}
                     tickLine={false}
                   />
                   <Tooltip
-                    cursor={{ fill: 'rgba(20, 20, 19, 0.04)' }}
+                    cursor={{ fill: 'rgba(15, 23, 42, 0.03)' }}
                     content={<CampusLoadTooltip />}
                   />
                   <Bar
                     dataKey="capKw"
-                    name="Contract Cap"
-                    fill="#e5e3dc"
-                    radius={[3, 3, 0, 0]}
+                    name="Capacity"
+                    fill="#e2e8f0"
+                    radius={[6, 6, 0, 0]}
                     isAnimationActive={false}
                   />
                   <Bar
                     dataKey="currentKw"
-                    name="Live Draw"
-                    radius={[3, 3, 0, 0]}
+                    name="Current Load"
+                    radius={[6, 6, 0, 0]}
                     isAnimationActive={false}
                   >
                     {campusBars.map((entry) => (
@@ -448,8 +409,8 @@ export default function LauncherPage() {
                           !entry.online
                             ? '#cbd5e1'
                             : entry.breaching
-                              ? '#dc2626'
-                              : '#0f766e'
+                              ? '#ef4444'
+                              : '#10b981'
                         }
                       />
                     ))}
@@ -459,48 +420,45 @@ export default function LauncherPage() {
             </div>
           </div>
 
-          {/* Right 1/3: 3D Spatial Twin */}
-          <div className="card flex min-w-0 flex-col justify-between">
+          <div className="card flex min-w-0 flex-col justify-between lg:col-span-4">
             <div>
-              <div className="flex items-center justify-between gap-2">
-                <h2 className="section-title">3D Spatial Twin</h2>
-                <span className="font-mono text-[10.5px] text-[#86847b]">
-                  WebGL
-                </span>
-              </div>
+              <h2 className="section-title">3D Grenoble Map</h2>
+              <p className="mt-1 text-xs text-[#6b7280]">
+                Explore buildings, rooftop solar, parked EVs, and live power relays.
+              </p>
 
               <div className="mt-4">
-                <div className="label mb-1.5">Render Mode</div>
-                <div className="grid grid-cols-2 gap-1 rounded-md bg-[#efeee9] p-1">
+                <div className="mb-1.5 text-xs font-medium text-[#6b7280]">View Style</div>
+                <div className="grid grid-cols-2 gap-1 rounded-xl bg-[#f1f5f9] p-1">
                   {(['realistic', 'wireframe'] as MapMode[]).map((m) => (
                     <button
                       key={m}
                       type="button"
-                      className={`rounded px-2.5 py-1.5 text-[12px] font-medium transition ${
+                      className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                         mapMode === m
-                          ? 'bg-white font-semibold text-[#141413] shadow-sm'
-                          : 'text-[#57564f] hover:text-[#141413]'
+                          ? 'bg-white font-semibold text-[#111827] shadow-sm'
+                          : 'text-[#6b7280] hover:text-[#111827]'
                       }`}
                       onClick={() => setMapMode(m)}
                     >
-                      {m === 'realistic' ? 'Real-Life' : 'Wireframe'}
+                      {m === 'realistic' ? 'Realistic' : 'Blueprint'}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-2.5 border-t border-[#e5e3dc] pt-4">
+              <div className="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-[#f8fafc] p-3">
                 <div>
-                  <div className="label">Fleet Ready</div>
-                  <div className="metric mt-1 text-lg text-[#0f766e]">
+                  <div className="text-[11px] text-[#6b7280]">Vehicles Ready</div>
+                  <div className="metric mt-0.5 text-lg text-[#10b981]">
                     {Math.round(data.totals.readyPct)}%
                   </div>
                 </div>
                 <div>
-                  <div className="label">Connected EVs</div>
-                  <div className="metric mt-1 text-lg text-[#141413]">
+                  <div className="text-[11px] text-[#6b7280]">Parked EVs</div>
+                  <div className="metric mt-0.5 text-lg text-[#111827]">
                     {fmt(data.totals.evsConnected)}
-                    <span className="ml-1 text-[11px] font-normal text-[#86847b]">
+                    <span className="ml-1 text-xs font-normal text-[#6b7280]">
                       / {fmt(data.totals.totalBays)}
                     </span>
                   </div>
@@ -516,71 +474,65 @@ export default function LauncherPage() {
                 className="btn btn-accent w-full !py-2.5 no-underline hover:no-underline"
               >
                 <MapIcon className="h-4 w-4" />
-                Launch 3D Map
-                <ExternalLink className="h-3.5 w-3.5" />
+                Open 3D Map
+                <ExternalLink className="h-3.5 w-3.5 opacity-80" />
               </a>
               <Link
                 to={`/hq?room=${encodeURIComponent(room)}`}
-                className="flex items-center justify-center gap-1.5 py-1 text-[12.5px] font-medium text-[#57564f] no-underline transition-colors hover:text-[#141413] hover:no-underline"
+                className="flex items-center justify-center gap-1.5 py-1 text-xs font-medium text-[#6b7280] no-underline transition-colors hover:text-[#111827] hover:no-underline"
               >
-                Open HQ Analytics &amp; Governance
+                Open Portfolio Analytics
                 <ArrowRight className="h-3.5 w-3.5" />
               </Link>
             </div>
           </div>
         </section>
 
-        {/* (c) Campus Switchboard Grid */}
+        {/* Campus Switchboard Grid */}
         <section>
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <h2 className="section-title">Campus Switchboard</h2>
-            <span className="font-mono text-[11px] text-[#86847b]">
-              {data.sites.length} sites · GDPR aggregate telemetry
+          <div className="mb-3.5 flex items-center justify-between gap-2">
+            <h2 className="section-title">Buildings</h2>
+            <span className="text-xs text-[#6b7280]">
+              Toggle building power &amp; inspect individual dashboards
             </span>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {data.sites.map((site) => {
               const effectiveOn = site.online && data.serverOnline;
               const status = siteStatus(site);
               const isBreach =
                 effectiveOn && (site.breaching || site.currentKw > site.capKw);
-              const gridPct = Math.min(
-                100,
-                (site.currentKw / Math.max(1, site.capKw)) * 100,
-              );
-              const dotHex = !effectiveOn
-                ? '#86847b'
-                : isBreach
-                  ? '#dc2626'
-                  : status.label === 'OPTIMIZED'
-                    ? '#0f766e'
-                    : status.label === 'ALERT'
-                      ? '#b45309'
-                      : '#1d4ed8';
+              const rawPct = site.capKw > 0 ? Math.round((site.currentKw / site.capKw) * 100) : 0;
+              const gridPct = Math.min(100, rawPct);
 
               return (
                 <article
                   key={site.id}
                   className={`card flex min-w-0 flex-col justify-between transition-opacity ${
-                    effectiveOn ? '' : 'bg-[#faf9f6] opacity-80'
+                    effectiveOn ? '' : 'opacity-70'
                   }`}
                 >
                   <div>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <div className="truncate text-[15px] font-bold tracking-[-0.015em] text-[#141413]">
-                          {site.name}
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            style={{ backgroundColor: status.hex }}
+                          />
+                          <h3 className="truncate text-[16px] font-semibold text-[#111827]">
+                            {site.name}
+                          </h3>
                         </div>
-                        <div className="mt-0.5 truncate text-[11.5px] text-[#86847b]">
-                          {site.role}
-                          {site.isControl ? ' · Matched control' : ''}
+                        <div className="mt-0.5 pl-[18px] text-xs text-[#6b7280]">
+                          {site.role} · {status.label}
                         </div>
                       </div>
-                      <BraunToggle
+                      <PillToggle
                         on={site.online}
                         disabled={!data.serverOnline}
-                        label={`Supply and routing for ${site.name}`}
+                        label={`Power supply for ${site.name}`}
                         onClick={() =>
                           void dispatch({
                             type: 'SITE_SET_ONLINE',
@@ -593,75 +545,72 @@ export default function LauncherPage() {
 
                     {effectiveOn ? (
                       <>
-                        <div className="mt-4 flex items-baseline justify-between gap-2">
+                        <div className="mt-5 flex items-baseline justify-between gap-2">
                           <div className="flex items-baseline gap-1.5">
                             <span
                               className={`metric text-2xl ${
-                                isBreach ? 'text-[#dc2626]' : 'text-[#141413]'
+                                isBreach ? 'text-[#ef4444]' : 'text-[#111827]'
                               }`}
                             >
-                              {fmt(site.currentKw)}
+                              {fmt(site.currentKw)} kW
                             </span>
-                            <span className="font-mono text-xs text-[#86847b]">
-                              / {site.capKw} kW
+                            <span className="text-xs text-[#6b7280]">
+                              of {site.capKw} kW
                             </span>
                           </div>
-                          <span className="font-mono text-[11px] font-medium text-[#57564f] tabular-nums">
-                            {Math.round(gridPct)}%
+                          <span
+                            className={`text-xs font-medium tabular-nums ${
+                              isBreach ? 'font-semibold text-[#ef4444]' : 'text-[#6b7280]'
+                            }`}
+                          >
+                            {rawPct}%
                           </span>
                         </div>
 
-                        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-[#efeee9]">
+                        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
                           <div
                             className="h-full rounded-full transition-all duration-300"
                             style={{
                               width: `${gridPct}%`,
-                              backgroundColor: isBreach ? '#dc2626' : '#0f766e',
+                              backgroundColor: isBreach ? '#ef4444' : '#10b981',
                             }}
                           />
                         </div>
 
-                        {/* One quiet telemetry line */}
-                        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 font-mono text-[11px] text-[#57564f] tabular-nums">
-                          <span className="inline-flex items-center gap-1.5 font-medium text-[#141413]">
-                            <span
-                              className="h-1.5 w-1.5 rounded-full"
-                              style={{ backgroundColor: dotHex }}
-                            />
-                            {status.label}
-                          </span>
-                          <span>Solar {fmt(site.solarKwh)} kWh</span>
+                        <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-[#6b7280] tabular-nums">
                           <span>
-                            Bays {site.activeBays}/{site.totalBays}
+                            {fmt(site.solarKwh)} kWh rooftop solar · {site.activeBays}/{site.totalBays} bays charging
                           </span>
+                          {site.sellToGrid && site.currentExportKw > 0 ? (
+                            <span className="rounded-full bg-teal-50 px-2 py-0.5 font-medium text-teal-700">
+                              Selling +{fmt(site.currentExportKw)} kW
+                            </span>
+                          ) : null}
                         </div>
 
-                        {/* Subtle warm-ochre notice if unread alerts exist */}
                         {site.unreadNotifications > 0 ? (
-                          <div className="mt-3 flex items-center gap-2 rounded-md border border-[#fde68a] bg-[#fffbeb] px-2.5 py-1.5 text-[11.5px] font-medium text-[#b45309]">
-                            <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                          <div className="mt-3.5 flex items-center gap-2 rounded-xl bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800">
+                            <AlertCircle className="h-3.5 w-3.5 shrink-0 text-amber-600" />
                             <span>
-                              {site.unreadNotifications} pending agent routing{' '}
-                              {site.unreadNotifications === 1 ? 'alert' : 'alerts'}
+                              Power shift ready to review ({site.unreadNotifications})
                             </span>
                           </div>
                         ) : null}
                       </>
                     ) : (
-                      <div className="mt-5 rounded-md border border-[#e5e3dc] bg-[#efeee9] px-3 py-3 text-center font-mono text-xs font-medium text-[#57564f]">
-                        Isolated · 0 kW
+                      <div className="mt-5 rounded-xl bg-[#f8fafc] px-3 py-4 text-center text-xs font-medium text-[#6b7280]">
+                        Power isolated · 0 kW
                       </div>
                     )}
                   </div>
 
-                  {/* Card actions */}
-                  <div className="mt-4 border-t border-[#e5e3dc] pt-3.5">
+                  <div className="mt-5 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100 pt-3.5">
                     {effectiveOn ? (
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex items-center gap-1.5">
+                      <>
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <button
                             type="button"
-                            className="btn btn-secondary !min-h-0 !px-2.5 !py-1.5 !text-[11.5px]"
+                            className="btn btn-secondary !min-h-0 !rounded-lg !px-2.5 !py-1.5 text-xs"
                             onClick={() =>
                               void dispatch(
                                 site.isControl
@@ -674,7 +623,7 @@ export default function LauncherPage() {
                               )
                             }
                           >
-                            <Cpu className="h-3.5 w-3.5 text-[#3730a3]" />
+                            <Cpu className="h-3.5 w-3.5 text-[#4f46e5]" />
                             {site.isControl
                               ? site.aiEnabled
                                 ? 'Disable AI'
@@ -683,33 +632,48 @@ export default function LauncherPage() {
                           </button>
                           <button
                             type="button"
-                            className="btn btn-secondary !min-h-0 !px-2.5 !py-1.5 !text-[11.5px]"
+                            className="btn btn-secondary !min-h-0 !rounded-lg !px-2.5 !py-1.5 text-xs"
                             onClick={() =>
                               void dispatch({ type: 'SITE_OPTIMIZE', siteId: site.id })
                             }
                           >
-                            <Zap className="h-3.5 w-3.5 text-[#0f766e]" />
+                            <Zap className="h-3.5 w-3.5 text-[#10b981]" />
                             Optimize
+                          </button>
+                          <button
+                            type="button"
+                            className={`btn !min-h-0 !rounded-lg !px-2.5 !py-1.5 text-xs ${
+                              site.sellToGrid
+                                ? '!border-teal-500/40 !bg-teal-50 font-semibold !text-teal-700 hover:!bg-teal-100'
+                                : 'btn-secondary'
+                            }`}
+                            onClick={() =>
+                              void dispatch({
+                                type: 'SITE_SET_SELL_TO_GRID',
+                                siteId: site.id,
+                                enabled: !site.sellToGrid,
+                              })
+                            }
+                          >
+                            {site.sellToGrid
+                              ? `Selling +${fmt(site.currentExportKw)} kW`
+                              : 'Sell to Grid'}
                           </button>
                         </div>
                         <a
                           href={`/sites/${site.id}?room=${encodeURIComponent(room)}`}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[12px] font-semibold text-[#141413] no-underline hover:text-[#0f766e] hover:no-underline"
+                          className="inline-flex items-center gap-1 text-xs font-semibold text-[#111827] no-underline hover:text-[#2563eb] hover:no-underline"
                         >
                           Open Dashboard
                           <ExternalLink className="h-3.5 w-3.5" />
                         </a>
-                      </div>
+                      </>
                     ) : (
-                      <button
-                        type="button"
-                        disabled
-                        className="btn btn-secondary w-full !min-h-0 !py-1.5 !text-[11.5px]"
-                      >
-                        Supply Off — Enable to Launch
-                      </button>
+                      <span className="text-xs text-[#9ca3af]">
+                        Turn power switch on to open dashboard
+                      </span>
                     )}
                   </div>
                 </article>
@@ -718,28 +682,26 @@ export default function LauncherPage() {
           </div>
         </section>
 
-        {/* (d) Dispatch & Audit Ledger */}
+        {/* Recent Activity */}
         <section className="card min-w-0">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="section-title">Dispatch &amp; Audit Ledger</h2>
-            <span className="font-mono text-[11px] text-[#86847b]">
-              {feed.length} recent entries
-            </span>
+            <h2 className="section-title">Recent Grid Activity</h2>
+            <span className="text-xs text-[#6b7280]">{feed.length} events</span>
           </div>
-          <div className="mt-3 max-h-72 overflow-x-auto overflow-y-auto rounded-md border border-[#e5e3dc]">
+          <div className="mt-3 max-h-72 overflow-x-auto overflow-y-auto rounded-xl border border-slate-100">
             <table className="table">
               <thead>
                 <tr>
                   <th>Time</th>
-                  <th>Source</th>
-                  <th>Campus</th>
-                  <th>Decision</th>
+                  <th>Actor</th>
+                  <th>Building</th>
+                  <th>Summary</th>
                 </tr>
               </thead>
               <tbody>
                 {feed.map((item) => (
                   <tr key={item.key}>
-                    <td className="tnum whitespace-nowrap text-[#86847b]">
+                    <td className="tnum whitespace-nowrap text-[#6b7280]">
                       {item.at.includes('T') ? item.at.slice(11, 16) : item.at}
                     </td>
                     <td className="whitespace-nowrap">
@@ -747,16 +709,16 @@ export default function LauncherPage() {
                         {item.source}
                       </span>
                     </td>
-                    <td className="whitespace-nowrap font-mono text-[11.5px] text-[#1d4ed8]">
+                    <td className="whitespace-nowrap text-xs font-medium text-[#2563eb]">
                       {item.campus}
                     </td>
-                    <td className="min-w-[260px] text-[#141413]">{item.decision}</td>
+                    <td className="min-w-[260px] text-[#374151]">{item.decision}</td>
                   </tr>
                 ))}
                 {feed.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="text-[#86847b]">
-                      No agent dispatches or audit entries yet.
+                    <td colSpan={4} className="text-[#6b7280]">
+                      No recent grid events yet.
                     </td>
                   </tr>
                 ) : null}

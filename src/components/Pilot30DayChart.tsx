@@ -19,11 +19,11 @@ export interface Pilot30DayChartProps {
 
 const COLORS = {
   controlSafe: '#cbd5e1',
-  controlBreach: '#dc2626',
-  pilot: '#0f766e',
-  cap: '#141413',
-  gridline: '#eceae4',
-  axis: '#86847b',
+  controlBreach: '#ef4444',
+  pilot: '#10b981',
+  cap: '#111827',
+  gridline: '#f1f5f9',
+  axis: '#6b7280',
 };
 
 function niceMax(value: number): number {

@@ -496,6 +496,27 @@ check('SET_SCENARIO auto-triggers the agentic cycle only when routing is enabled
   assertEqual(buildSiteSnapshot(cycled, 'alptech-hq').notifications.length, 0);
 });
 
+check('SITE_SET_SELL_TO_GRID exports surplus power cleanly with GDPR isolation', () => {
+  let state = createInitialRoomState('verify-sell-to-grid');
+  const before = buildSiteSnapshot(state, 'alptech-hq').sim.current;
+  assertEqual(before.exportKw, 0);
+
+  state = applyAction(state, {
+    type: 'SITE_SET_SELL_TO_GRID',
+    siteId: 'alptech-hq',
+    enabled: true,
+  });
+  const after = buildSiteSnapshot(state, 'alptech-hq');
+  assertOk(after.sim.current.exportKw > 0, 'expected positive exportKw after enabling sellToGrid');
+  assertOk(after.sim.dailyExportRevenueEur > 0, 'expected positive export revenue');
+  assertOk(after.sim.current.gridKw < before.gridKw, 'net grid draw should drop during export');
+
+  const hqJson = JSON.stringify(buildHqSnapshot(state));
+  assertOk(!hqJson.includes('allocKw'), 'HQ snapshot leaked allocKw');
+  assertOk(!hqJson.includes('"vehicles"'), 'HQ snapshot leaked vehicles');
+  assertOk(!hqJson.includes('EV-01'), 'HQ snapshot leaked EV-01');
+});
+
 console.log(`\n${checks - failures.length}/${checks} checks passed.`);
 if (failures.length > 0) {
   throw new Error(`Failed checks: ${failures.join(', ')}`);

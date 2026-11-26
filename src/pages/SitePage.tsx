@@ -17,6 +17,7 @@ import {
   Sparkles,
   Sun,
   X,
+  Zap,
 } from 'lucide-react';
 import {
   Area,
@@ -47,11 +48,11 @@ type TabId = 1 | 2 | 3 | 4 | 5;
 type TableMode = 'rep' | 'all';
 
 const TABS: Array<{ id: TabId; label: string }> = [
-  { id: 1, label: '01 Day-Ahead Forecast' },
-  { id: 2, label: '02 Before vs Optimized' },
-  { id: 3, label: '03 Manager Control' },
-  { id: 4, label: '04 30-Day Pilot & MLOps' },
-  { id: 5, label: '05 Governance & Policy' },
+  { id: 1, label: 'Forecast' },
+  { id: 2, label: 'Before & After' },
+  { id: 3, label: 'Fleet & Controls' },
+  { id: 4, label: '30-Day Impact' },
+  { id: 5, label: 'Privacy & Policy' },
 ];
 
 const PRIORITY_MODES: Array<{ id: PriorityMode; label: string }> = [
@@ -117,21 +118,21 @@ function KpiCell({
 }) {
   const toneClass =
     tone === 'accent'
-      ? 'text-[#0f766e]'
+      ? 'text-[#10b981]'
       : tone === 'solar'
-        ? 'text-[#b45309]'
+        ? 'text-[#d97706]'
         : tone === 'danger'
-          ? 'text-[#dc2626]'
+          ? 'text-[#ef4444]'
           : tone === 'building'
-            ? 'text-[#1d4ed8]'
-            : 'text-[#141413]';
+            ? 'text-[#2563eb]'
+            : 'text-[#111827]';
 
   return (
-    <div className="p-4">
-      <div className="label">{label}</div>
-      <div className={`metric mt-1.5 text-xl ${toneClass}`}>{value}</div>
+    <div className="card !p-4">
+      <div className="text-xs font-medium text-[#6b7280]">{label}</div>
+      <div className={`metric mt-1.5 text-2xl ${toneClass}`}>{value}</div>
       {sub ? (
-        <div className="mt-1 text-[11px] leading-snug text-[#57564f]">{sub}</div>
+        <div className="mt-1 text-xs leading-snug text-[#6b7280]">{sub}</div>
       ) : null}
     </div>
   );
@@ -522,6 +523,27 @@ export default function SitePage() {
             <RotateCcw className="h-3.5 w-3.5" />
             Reset
           </button>
+          <button
+            type="button"
+            className={`btn ${
+              state.sellToGrid
+                ? '!border-teal-500/40 !bg-teal-50 font-semibold !text-teal-700 hover:!bg-teal-100'
+                : 'btn-secondary'
+            }`}
+            disabled={!state.online || state.failSafe}
+            onClick={() =>
+              void dispatch({
+                type: 'SITE_SET_SELL_TO_GRID',
+                siteId,
+                enabled: !state.sellToGrid,
+              })
+            }
+          >
+            <Zap className="h-3.5 w-3.5 text-[#0f766e]" />
+            {state.sellToGrid
+              ? `Selling +${Math.round(sim.current.exportKw)} kW`
+              : 'Sell to Grid'}
+          </button>
           <a
             href={`/map?room=${encodeURIComponent(room)}`}
             target="_blank"
@@ -538,28 +560,28 @@ export default function SitePage() {
       <div className="space-y-5">
         {/* Targeted Agent Notification Banner (L3 HITL) */}
         {latestUnread ? (
-          <section className="rounded-lg border border-[#d97706]/35 bg-[#fffbeb] p-4 text-[#141413]">
-            <div className="flex flex-wrap items-center justify-between gap-3">
+          <section className="rounded-2xl border border-amber-200 bg-amber-50/90 p-5 text-[#111827] shadow-sm">
+            <div className="flex flex-wrap items-center justify-between gap-4">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="inline-flex items-center gap-1 font-mono text-[10.5px] font-semibold uppercase tracking-[0.04em] text-[#b45309]">
-                    <AlertTriangle className="h-3.5 w-3.5" />
+                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-800">
+                    <AlertTriangle className="h-4 w-4 text-amber-600" />
                     {latestUnread.requiresApproval
-                      ? 'L3 Approval Required'
-                      : 'Agent Routing Notice'}
+                      ? 'Suggested Power Shift — Review Required'
+                      : 'Routing Update'}
                   </span>
                   <span className="tag tag-agent">{latestUnread.agentName}</span>
                   {unreadNotifications.length > 1 ? (
-                    <span className="tag">{unreadNotifications.length} unread</span>
+                    <span className="tag">{unreadNotifications.length} pending</span>
                   ) : null}
-                  <span className="font-mono text-[10.5px] text-[#86847b]">
+                  <span className="text-xs text-[#6b7280] tabular-nums">
                     {latestUnread.at}
                   </span>
                 </div>
-                <div className="mt-1.5 text-[13.5px] font-semibold text-[#141413]">
+                <div className="mt-1.5 text-[15px] font-semibold text-[#111827]">
                   {latestUnread.title}
                 </div>
-                <p className="mt-0.5 max-w-4xl text-[12.5px] leading-relaxed text-[#57564f]">
+                <p className="mt-0.5 max-w-4xl text-[13px] leading-relaxed text-[#4b5563]">
                   {latestUnread.message}
                 </p>
               </div>
@@ -575,15 +597,15 @@ export default function SitePage() {
                     }
                   }}
                 >
-                  <CheckCircle2 className="h-3.5 w-3.5" />
-                  Approve Routing
+                  <CheckCircle2 className="h-4 w-4" />
+                  Approve Shift
                 </button>
                 <button
                   type="button"
                   className="btn btn-secondary"
                   onClick={() => ackNotification(latestUnread.id)}
                 >
-                  <X className="h-3.5 w-3.5" />
+                  <X className="h-4 w-4" />
                   Dismiss
                 </button>
               </div>
@@ -669,11 +691,10 @@ export default function SitePage() {
           </section>
         ) : null}
 
-        {/* Single Hairline KPI Strip (6 columns) */}
-        <section className="card overflow-hidden !p-0">
-          <div className="grid grid-cols-2 divide-x divide-y divide-[#e5e3dc] md:grid-cols-3 xl:grid-cols-6 xl:divide-y-0">
+        {/* Spacious Apple/Tesla KPI Card Grid */}
+        <section className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-6">
             <KpiCell
-              label="Predicted Peak"
+              label="Peak Load"
               value={`${sim.peakKw} kW`}
               sub={`${sim.peakKw <= sim.baselinePeakKw ? '−' : '+'}${Math.abs(
                 sim.peakKw - sim.baselinePeakKw,
@@ -681,7 +702,7 @@ export default function SitePage() {
               tone={sim.breaching ? 'danger' : 'default'}
             />
             <KpiCell
-              label="Target Cap"
+              label="Site Limit"
               value={`${targetPeak} kW`}
               sub={
                 sim.peakKw > targetPeak
@@ -691,35 +712,38 @@ export default function SitePage() {
               tone={sim.peakKw > targetPeak ? 'danger' : 'accent'}
             />
             <KpiCell
-              label="EVs Connected"
+              label="Connected EVs"
               value={site.evsConnected}
-              sub={`${sim.current.activeBays}/${site.totalBays} bays active`}
+              sub={`${sim.current.activeBays}/${site.totalBays} bays charging`}
               tone="building"
             />
             <KpiCell
-              label="Solar Available"
+              label="Rooftop Solar"
               value={`${sim.solarKwh} kWh`}
-              sub={`${sim.solarSelfPct}% EV solar share`}
+              sub={`${sim.solarSelfPct}% used by EVs`}
               tone="solar"
             />
             <KpiCell
               label="Vehicles Ready"
               value={`${sim.readyPct}%`}
-              sub={`${sim.readyCount}/${site.evsConnected} at target SOC`}
+              sub={`${sim.readyCount}/${site.evsConnected} at departure target`}
               tone={sim.readyPct === 100 ? 'accent' : 'solar'}
             />
             <KpiCell
-              label="Est. Daily Saving"
+              label="Daily Savings"
               value={`€${sim.dailySavingEur.toFixed(1)}`}
-              sub="Simulated · peak + energy"
+              sub={
+                state.sellToGrid
+                  ? `Incl. +€${sim.dailyExportRevenueEur.toFixed(0)} grid export`
+                  : 'Simulated estimate'
+              }
               tone="accent"
             />
-          </div>
         </section>
 
-        {/* Swiss Underline Tabs */}
+        {/* Clean Pill Tabs */}
         <nav
-          className="flex flex-wrap gap-x-6 gap-y-1 border-b border-[#e5e3dc]"
+          className="inline-flex flex-wrap gap-1 rounded-xl bg-slate-200/70 p-1"
           aria-label="Site dashboard tabs"
         >
           {TABS.map((entry) => {
@@ -728,10 +752,10 @@ export default function SitePage() {
               <button
                 key={entry.id}
                 type="button"
-                className={`-mb-px whitespace-nowrap border-b-2 pb-2.5 text-[13px] transition-colors ${
+                className={`whitespace-nowrap rounded-lg px-3.5 py-1.5 text-[13px] transition-all ${
                   active
-                    ? 'border-[#141413] font-semibold text-[#141413]'
-                    : 'border-transparent font-medium text-[#57564f] hover:text-[#141413]'
+                    ? 'bg-white font-semibold text-[#111827] shadow-sm'
+                    : 'font-medium text-[#4b5563] hover:text-[#111827]'
                 }`}
                 aria-current={active ? 'page' : undefined}
                 onClick={() => setTab(entry.id)}
